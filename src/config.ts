@@ -2,8 +2,8 @@
 import { KnuggetConfig } from "./types";
 
 export const config: KnuggetConfig = {
-  apiBaseUrl: "https://knugget-backend.onrender.com/api", // FIXED: Points to BACKEND, not frontend
-  websiteUrl: "https://knugget-client.vercel.app", // Frontend URL
+  apiBaseUrl: "https://knugget-new-backend.onrender.com/api", // FIXED: Points to BACKEND, not frontend
+  websiteUrl: "https://knugget-new-client.vercel.app", // Frontend URL
   refreshTokenThreshold: 5,
   maxRetries: 3,
   retryDelay: 1000,

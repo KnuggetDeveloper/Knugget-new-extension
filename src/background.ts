@@ -233,8 +233,8 @@ class BackgroundService {
         "http://localhost:8000",
         "http://localhost:3000",
         "https://knugget.com",
-        "https://knugget-backend.onrender.com",
-        "https://knugget-client.vercel.app",
+        "https://knugget-new-backend.onrender.com",
+        "https://knugget-new-client.vercel.app",
       ];
       return allowedOrigins.includes(origin);
     } catch {

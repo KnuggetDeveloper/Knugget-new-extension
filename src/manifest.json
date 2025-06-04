@@ -17,8 +17,8 @@
     "https://localhost:*/*",
     "https://*.knugget.com/*",
     "http://localhost:8000/*",
-    "https://knugget-backend.onrender.com/*",
-    "https://knugget-client.vercel.app/*"
+    "https://knugget-new-backend.onrender.com/*",
+    "https://knugget-new-client.vercel.app/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -26,7 +26,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*", "https://knugget-backend.onrender.com/*"],
+      "matches": ["https://www.youtube.com/*", "https://knugget-new-backend.onrender.com/*"],
       "js": ["youtube.js"],
       "css": ["styles.css"],
       "run_at": "document_end"
@@ -41,14 +41,14 @@
       "http://localhost:8000/*",
       "https://localhost:8000/*",
       "https://*.knugget.com/*",
-      "https://knugget-backend.onrender.com/*",
-      "https://knugget-client.vercel.app/*"
+      "https://knugget-new-backend.onrender.com/*",
+      "https://knugget-new-client.vercel.app/*"
     ]
   },
   "web_accessible_resources": [
     {
       "resources": ["icons/*"],
-      "matches": ["https://www.youtube.com/*", "https://knugget-backend.onrender.com/*"]
+      "matches": ["https://www.youtube.com/*", "https://knugget-new-backend.onrender.com/*"]
     }
   ]
 }
