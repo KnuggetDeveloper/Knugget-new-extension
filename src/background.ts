@@ -30,7 +30,6 @@ class BackgroundService {
       return true;
     });
   }
-
   private setupExternalMessageListener(): void {
     chrome.runtime.onMessageExternal.addListener(
       (message, sender, sendResponse) => {
@@ -48,6 +47,7 @@ class BackgroundService {
             this.handleExternalAuthSuccess(message.payload, sendResponse);
             break;
           case "KNUGGET_LOGOUT":
+            // FIXED: Handle logout message from frontend
             this.handleExternalLogout(sendResponse);
             break;
           case "KNUGGET_CHECK_AUTH":
@@ -112,7 +112,6 @@ class BackgroundService {
       });
     });
   }
-
  private async handleExternalAuthSuccess(payload: any, sendResponse: Function): Promise<void> {
     try {
       if (!payload || !payload.accessToken) {
@@ -163,13 +162,22 @@ class BackgroundService {
 
   private async handleExternalLogout(sendResponse: Function): Promise<void> {
     try {
-      await authService.logout();
-      this.notifyAllYouTubeTabs(MessageType.LOGOUT);
-      sendResponse({ success: true });
-      console.log("✅ External logout handled");
+      console.log('🚪 Handling external logout from frontend')
+      
+      // Clear extension auth data using auth service
+      await authService.logout()
+      
+      // CRITICAL FIX: Notify all YouTube tabs about logout
+      this.notifyAllYouTubeTabs(MessageType.LOGOUT, {
+        reason: 'Frontend logout',
+        timestamp: new Date().toISOString()
+      })
+      
+      sendResponse({ success: true })
+      console.log('✅ External logout handled - extension auth cleared')
     } catch (error) {
-      console.error("❌ Failed to handle external logout:", error);
-      sendResponse({ success: false, error: "Logout failed" });
+      console.error('❌ Failed to handle external logout:', error)
+      sendResponse({ success: false, error: 'Logout failed' })
     }
   }
 

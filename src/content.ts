@@ -400,49 +400,82 @@ function setupURLChangeDetection(): void {
 // FIXED: Enhanced auth refresh listener
 function setupAuthRefreshListener(): void {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("📨 Content script received message:", message);
+    console.log('📨 Content script received message:', message)
 
     switch (message.type) {
       case "AUTH_STATUS_CHANGED":
-        console.log("🔄 Auth status changed:", message.data);
+        console.log('🔄 Auth status changed:', message.data)
         if (message.data?.isAuthenticated && message.data?.user) {
-          authState.isAuthenticated = true;
-          authState.user = message.data.user;
-
-          // Update credits display
-          updateCreditsDisplay(message.data.user.credits);
-
+          authState.isAuthenticated = true
+          authState.user = message.data.user
+          updateCreditsDisplay(message.data.user.credits)
+          
           // Refresh summary content if it's currently displayed
-          const summaryContent = document.getElementById("summary-content");
+          const summaryContent = document.getElementById("summary-content")
           if (summaryContent && summaryContent.style.display !== "none") {
-            loadAndDisplaySummary();
+            loadAndDisplaySummary()
           }
         } else {
-          authState.isAuthenticated = false;
-          authState.user = null;
-          updateCreditsDisplay(0);
+          authState.isAuthenticated = false
+          authState.user = null
+          updateCreditsDisplay(0)
         }
-        break;
+        break
 
       case "LOGOUT":
-        console.log("🚪 User logged out");
-        authState.isAuthenticated = false;
-        authState.user = null;
-        updateCreditsDisplay(0);
+        console.log('🚪 User logged out - clearing extension state')
+        
+        // Clear extension auth state immediately
+        authState.isAuthenticated = false
+        authState.user = null
+        updateCreditsDisplay(0)
 
         // Show login required if summary tab is active
-        const summaryContent = document.getElementById("summary-content");
+        const summaryContent = document.getElementById("summary-content")
         if (summaryContent && summaryContent.style.display !== "none") {
-          showLoginRequired(summaryContent);
+          showLoginRequired(summaryContent)
         }
-        break;
+        
+        // Show logout notification to user
+        showLogoutNotification()
+        break
     }
 
-    sendResponse({ received: true });
-    return true;
-  });
+    sendResponse({ received: true })
+    return true
+  })
 }
-
+function showLogoutNotification(): void {
+  // Create a temporary notification element
+  const notification = document.createElement('div')
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #1f2937;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.3s ease;
+  `
+  notification.textContent = '✅ Logged out successfully'
+  
+  document.body.appendChild(notification)
+  
+  // Remove notification after 3 seconds
+  setTimeout(() => {
+    notification.style.opacity = '0'
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification)
+      }
+    }, 300)
+  }, 3000)
+}
 function updateCreditsDisplay(credits: number): void {
   const creditsDisplay = document.getElementById("credits-display");
   if (creditsDisplay) {

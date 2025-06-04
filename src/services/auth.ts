@@ -145,25 +145,29 @@ class AuthService {
   // FIXED: Enhanced logout with proper cleanup
   async logout(): Promise<void> {
     try {
-      // Clear refresh promise to prevent concurrent operations
-      this.refreshPromise = null;
-      this.isRefreshing = false;
+      console.log('🔄 Extension logout initiated')
       
-      // Clear auth data
-      await this.clearAuthData();
+      // Clear refresh promise to prevent concurrent operations
+      this.refreshPromise = null
+      this.isRefreshing = false
+      
+      // Clear auth data from storage
+      await this.clearAuthData()
+      
+      // Update internal state
+      this.authData = null
       
       // Notify auth state changed
-      this.notifyAuthStateChanged(false);
+      this.notifyAuthStateChanged(false)
       
-      console.log("✅ Auth data cleared");
+      console.log('✅ Extension auth data cleared completely')
     } catch (error) {
-      console.error("❌ Error during logout:", error);
+      console.error('❌ Error during extension logout:', error)
       // Force clear even if storage operations fail
-      this.authData = null;
-      this.notifyAuthStateChanged(false);
+      this.authData = null
+      this.notifyAuthStateChanged(false)
     }
   }
-
   // FIXED: Enhanced token refresh with comprehensive error handling
   async refreshToken(): Promise<boolean> {
     // Prevent concurrent refresh attempts
@@ -287,12 +291,16 @@ class AuthService {
   // FIXED: Clear auth data with error handling
   private async clearAuthData(): Promise<void> {
     try {
-      this.authData = null;
-      await chrome.storage.local.remove([storageKeys.AUTH_DATA]);
+      // Clear from Chrome storage
+      await chrome.storage.local.remove([storageKeys.AUTH_DATA])
+      
+      // Clear any cached auth state
+      await chrome.storage.local.remove(['knugget_last_auth_state'])
+      
+      console.log('✅ Extension storage cleared completely')
     } catch (error) {
-      console.error("❌ Error clearing auth data:", error);
+      console.error('❌ Error clearing extension auth data:', error)
       // Force clear in memory even if storage fails
-      this.authData = null;
     }
   }
 
@@ -321,6 +329,7 @@ class AuthService {
         console.warn("Failed to store auth state:", error);
       });
 
+      console.log(`📡 Auth state notification sent: ${isAuthenticated ? 'authenticated' : 'unauthenticated'}`)
     } catch (error) {
       console.error("❌ Error notifying auth state change:", error);
     }
