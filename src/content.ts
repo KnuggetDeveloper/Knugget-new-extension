@@ -400,27 +400,27 @@ function setupURLChangeDetection(): void {
 // FIXED: Enhanced auth refresh listener
 function setupAuthRefreshListener(): void {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('📨 Content script received message:', message)
+    console.log("📨 Content script received message:", message);
 
     switch (message.type) {
       case "AUTH_STATUS_CHANGED":
-        console.log('🔄 Auth status changed:', message.data)
+        console.log("🔄 Auth status changed:", message.data);
         if (message.data?.isAuthenticated && message.data?.user) {
           authState.isAuthenticated = true
           authState.user = message.data.user
           updateCreditsDisplay(message.data.user.credits)
           
           // Refresh summary content if it's currently displayed
-          const summaryContent = document.getElementById("summary-content")
+          const summaryContent = document.getElementById("summary-content");
           if (summaryContent && summaryContent.style.display !== "none") {
-            loadAndDisplaySummary()
+            loadAndDisplaySummary();
           }
         } else {
           authState.isAuthenticated = false
           authState.user = null
           updateCreditsDisplay(0)
         }
-        break
+        break;
 
       case "LOGOUT":
         console.log('🚪 User logged out - clearing extension state')
@@ -431,7 +431,7 @@ function setupAuthRefreshListener(): void {
         updateCreditsDisplay(0)
 
         // Show login required if summary tab is active
-        const summaryContent = document.getElementById("summary-content")
+        const summaryContent = document.getElementById("summary-content");
         if (summaryContent && summaryContent.style.display !== "none") {
           showLoginRequired(summaryContent)
         }

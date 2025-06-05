@@ -47,7 +47,6 @@ class BackgroundService {
             this.handleExternalAuthSuccess(message.payload, sendResponse);
             break;
           case "KNUGGET_LOGOUT":
-            // FIXED: Handle logout message from frontend
             this.handleExternalLogout(sendResponse);
             break;
           case "KNUGGET_CHECK_AUTH":
