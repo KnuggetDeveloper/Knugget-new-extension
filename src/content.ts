@@ -1,4 +1,4 @@
-// knugget-new/src/content.ts - FIXED
+// src/content.ts - Enhanced content script with better logout handling
 import "./styles.css";
 import { transcriptService } from "./services/transcript";
 import { User } from "./types";
@@ -7,7 +7,6 @@ import { getVideoId, debounce } from "./utils/dom";
 let currentVideoId: string | null = null;
 let knuggetPanel: HTMLElement | null = null;
 let hasInitializedGlobally = false;
-let isInitialized = false;
 let authState = {
   isAuthenticated: false,
   user: null as User | null,
@@ -35,7 +34,7 @@ function initializeKnuggetExtension(): void {
   console.log(`Initializing Knugget AI for video ID: ${videoId}`);
 
   setupURLChangeDetection();
-  setupAuthRefreshListener();
+  setupMessageListener();
 
   if (videoId) {
     processCurrentPage(videoId);
@@ -397,16 +396,15 @@ function setupURLChangeDetection(): void {
   });
 }
 
-// FIXED: Enhanced auth refresh listener
-function setupAuthRefreshListener(): void {
-  console.log('🎧 Setting up auth refresh listener...')
+// Enhanced message listener for auth sync
+function setupMessageListener(): void {
+  console.log('🎧 Setting up message listener...')
   
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("📨 Content script received message:", {
       type: message.type,
       hasData: !!message.data,
       timestamp: message.timestamp,
-      sender: sender.tab ? 'content-script' : 'extension'
     });
 
     try {
@@ -421,7 +419,6 @@ function setupAuthRefreshListener(): void {
           handleLogout(message.data)
           break;
 
-        // FIXED: Add test connection handler for debugging
         case "TEST_CONNECTION":
           console.log('🧪 Test connection received')
           sendResponse({ 
@@ -451,11 +448,12 @@ function setupAuthRefreshListener(): void {
       })
     }
     
-    return true // Keep sendResponse active for async responses
+    return true
   })
 
-  console.log('✅ Auth refresh listener setup complete')
+  console.log('✅ Message listener setup complete')
 }
+
 function handleAuthStatusChange(data: any): void {
   if (data?.isAuthenticated && data?.user) {
     console.log('✅ User authenticated:', data.user.email)
@@ -474,13 +472,10 @@ function handleAuthStatusChange(data: any): void {
     authState.isAuthenticated = false
     authState.user = null
     updateCreditsDisplay(0)
-    
-    // Force UI refresh for logout
     refreshUIAfterLogout()
   }
 }
 
-// FIXED: Dedicated logout handler  
 function handleLogout(data: any): void {
   console.log('🚪 Processing logout...', data)
   
@@ -498,12 +493,11 @@ function handleLogout(data: any): void {
   console.log('✅ Logout processing complete')
 }
 
-
 function refreshUIAfterLogout(): void {
   console.log('🔄 Refreshing UI after logout...')
   
   try {
-    // 1. Check if summary tab is active and show login required
+    // Check if summary tab is active and show login required
     const summaryTab = document.querySelector("#summary-tab");
     const summaryContent = document.getElementById("summary-content");
     
@@ -514,30 +508,14 @@ function refreshUIAfterLogout(): void {
       }
     }
     
-    // 2. Reset any save buttons that might be visible
+    // Reset save button
     const saveButton = document.getElementById("save-btn");
     if (saveButton) {
       saveButton.style.display = "none";
-      console.log('🔘 Save button hidden')
     }
     
-    // 3. Update credits display
+    // Update credits display
     updateCreditsDisplay(0)
-    console.log('💳 Credits display updated to 0')
-    
-    // 4. Force refresh of the current tab content if needed
-    const currentActiveTab = document.querySelector('.knugget-tab-active')
-    if (currentActiveTab) {
-      const tabType = currentActiveTab.id.includes('summary') ? 'summary' : 'transcript'
-      console.log(`🔄 Refreshing ${tabType} tab content`)
-      
-      if (tabType === 'summary') {
-        const summaryContent = document.getElementById("summary-content");
-        if (summaryContent) {
-          showLoginRequired(summaryContent)
-        }
-      }
-    }
     
     console.log('✅ UI refresh after logout completed')
   } catch (error) {
@@ -545,9 +523,7 @@ function refreshUIAfterLogout(): void {
   }
 }
 
-
 function showLogoutNotification(): void {
-  // Create a temporary notification element
   const notification = document.createElement('div')
   notification.style.cssText = `
     position: fixed;
@@ -636,7 +612,6 @@ function initializeWhenReady(): void {
 
   if (window.location.hostname.includes("youtube.com")) {
     const checkYouTubeReady = () => {
-      // Check if already initialized by another mechanism or if YouTube specific elements are ready
       if (hasInitializedGlobally) {
         console.log("YouTube specific check: Already initialized globally.");
         return;
@@ -645,14 +620,10 @@ function initializeWhenReady(): void {
         console.log("YouTube app detected, initializing");
         initializeKnuggetExtension();
       } else {
-        // Re-check a bit later if YouTube elements aren't immediately available
         setTimeout(checkYouTubeReady, 500);
       }
     };
 
-    // Start checking for YouTube readiness. 
-    // If document is already complete/interactive, initializeKnuggetExtension would have been called.
-    // This primarily handles cases where the script loads before full DOM interactivity on YouTube.
     if (document.readyState === "loading") {
       setTimeout(checkYouTubeReady, 100);
     }
