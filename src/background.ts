@@ -113,15 +113,15 @@ class BackgroundService {
   }
   private async notifyAllYouTubeTabs(type: MessageType, data?: any): Promise<void> {
     console.log(`📡 Notifying all YouTube tabs of: ${type}`)
-    
+
     try {
       // Query for all YouTube tabs
-      const tabs = await chrome.tabs.query({ 
-        url: ["*://*.youtube.com/*", "*://youtube.com/*"] 
+      const tabs = await chrome.tabs.query({
+        url: ["*://*.youtube.com/*", "*://youtube.com/*"]
       })
-      
+
       console.log(`🔍 Found ${tabs.length} YouTube tabs`)
-      
+
       if (tabs.length === 0) {
         console.log('⚠️ No YouTube tabs found to notify')
         return
@@ -136,16 +136,16 @@ class BackgroundService {
 
         try {
           console.log(`📤 Sending ${type} message to tab ${tab.id}: ${tab.url}`)
-          
-          const response = await chrome.tabs.sendMessage(tab.id, { 
-            type, 
+
+          const response = await chrome.tabs.sendMessage(tab.id, {
+            type,
             data,
             timestamp: new Date().toISOString()
           })
-          
+
           console.log(`✅ Successfully notified tab ${tab.id}:`, response)
           return { success: true, tabId: tab.id, response }
-          
+
         } catch (error) {
           // This is expected for tabs that don't have the content script loaded
           console.log(`ℹ️ Could not notify tab ${tab.id} (content script may not be loaded):`, error instanceof Error ? error.message : 'Unknown error')
@@ -155,28 +155,28 @@ class BackgroundService {
 
       // Wait for all messages to be sent
       const results = await Promise.allSettled(messagePromises)
-      
+
       // Log summary
       const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
       const failed = results.length - successful
-      
+
       console.log(`📊 Notification summary: ${successful} successful, ${failed} failed out of ${tabs.length} tabs`)
-      
+
       if (successful === 0) {
         console.warn('⚠️ No tabs were successfully notified! This might indicate a content script issue.')
       }
-      
+
     } catch (error) {
       console.error('❌ Failed to query YouTube tabs:', error)
     }
   }
   private async testTabCommunication(): Promise<void> {
     console.log('🧪 Testing tab communication...')
-    
+
     try {
       const tabs = await chrome.tabs.query({ url: "*://*.youtube.com/*" })
       console.log(`Found ${tabs.length} YouTube tabs for testing`)
-      
+
       for (const tab of tabs) {
         if (tab.id) {
           try {
@@ -194,7 +194,7 @@ class BackgroundService {
       console.error('❌ Tab communication test failed:', error)
     }
   }
- private async handleExternalAuthSuccess(payload: any, sendResponse: Function): Promise<void> {
+  private async handleExternalAuthSuccess(payload: any, sendResponse: Function): Promise<void> {
     try {
       if (!payload || !payload.accessToken) {
         throw new Error("Invalid auth payload");
@@ -245,16 +245,16 @@ class BackgroundService {
   private async handleExternalLogout(sendResponse: Function): Promise<void> {
     try {
       console.log('🚪 Handling external logout from frontend')
-      
+
       // Clear extension auth data using auth service
       await authService.logout()
-      
+
       // CRITICAL FIX: Enhanced notification to all YouTube tabs
       await this.notifyAllYouTubeTabs(MessageType.LOGOUT, {
         reason: 'Frontend logout',
         timestamp: new Date().toISOString()
       })
-      
+
       sendResponse({ success: true })
       console.log('✅ External logout handled - extension auth cleared')
     } catch (error) {
@@ -299,7 +299,7 @@ class BackgroundService {
     const extensionId = chrome.runtime.id;
     const referrer = payload?.url ? `&referrer=${encodeURIComponent(payload.url)}` : "";
     const loginUrl = `${config.websiteUrl}/login?source=extension&extensionId=${extensionId}${referrer}`;
-    
+
     chrome.tabs.create({ url: loginUrl });
   }
 
@@ -378,9 +378,8 @@ chrome.notifications?.onButtonClicked.addListener(
   (notificationId, buttonIndex) => {
     if (notificationId === "knugget-update" && buttonIndex === 0) {
       chrome.tabs.create({
-        url: `${config.websiteUrl}/changelog?version=${
-          chrome.runtime.getManifest().version
-        }`,
+        url: `${config.websiteUrl}/changelog?version=${chrome.runtime.getManifest().version
+          }`,
       });
     }
   }
@@ -388,3 +387,4 @@ chrome.notifications?.onButtonClicked.addListener(
 
 // Initialize background service
 new BackgroundService();
+
