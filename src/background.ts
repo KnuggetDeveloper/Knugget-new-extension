@@ -87,6 +87,18 @@ class BackgroundService {
           sendResponse({ success: refreshed });
           break;
 
+        // FIXED: Add explicit logout handling for internal messages
+        case "LOGOUT":
+        case MessageType.LOGOUT:
+          console.log('🚪 Handling internal logout request')
+          await authService.logout()
+          await this.notifyAllYouTubeTabs(MessageType.LOGOUT, {
+            reason: 'Internal logout',
+            timestamp: new Date().toISOString()
+          })
+          sendResponse({ success: true });
+          break;
+
         default:
           console.log("Unhandled internal message type:", message.type);
           sendResponse({ success: false, error: "Unknown message type" });
@@ -99,17 +111,88 @@ class BackgroundService {
       });
     }
   }
-  private notifyAllYouTubeTabs(type: MessageType, data?: any): void {
-    chrome.tabs.query({ url: "*://*.youtube.com/*" }, (tabs) => {
-      tabs.forEach((tab) => {
-        if (tab.id) {
-          chrome.tabs.sendMessage(tab.id, { type, data }).catch((error) => {
-            // Ignore errors for tabs that aren't ready
-            console.log("Could not notify tab:", tab.id, error.message);
-          });
+  private async notifyAllYouTubeTabs(type: MessageType, data?: any): Promise<void> {
+    console.log(`📡 Notifying all YouTube tabs of: ${type}`)
+    
+    try {
+      // Query for all YouTube tabs
+      const tabs = await chrome.tabs.query({ 
+        url: ["*://*.youtube.com/*", "*://youtube.com/*"] 
+      })
+      
+      console.log(`🔍 Found ${tabs.length} YouTube tabs`)
+      
+      if (tabs.length === 0) {
+        console.log('⚠️ No YouTube tabs found to notify')
+        return
+      }
+
+      // Send message to each tab with enhanced error handling
+      const messagePromises = tabs.map(async (tab) => {
+        if (!tab.id) {
+          console.warn('⚠️ Tab has no ID, skipping:', tab.url)
+          return { success: false, tabId: null, error: 'No tab ID' }
         }
-      });
-    });
+
+        try {
+          console.log(`📤 Sending ${type} message to tab ${tab.id}: ${tab.url}`)
+          
+          const response = await chrome.tabs.sendMessage(tab.id, { 
+            type, 
+            data,
+            timestamp: new Date().toISOString()
+          })
+          
+          console.log(`✅ Successfully notified tab ${tab.id}:`, response)
+          return { success: true, tabId: tab.id, response }
+          
+        } catch (error) {
+          // This is expected for tabs that don't have the content script loaded
+          console.log(`ℹ️ Could not notify tab ${tab.id} (content script may not be loaded):`, error instanceof Error ? error.message : 'Unknown error')
+          return { success: false, tabId: tab.id, error: error instanceof Error ? error.message : 'Unknown error' }
+        }
+      })
+
+      // Wait for all messages to be sent
+      const results = await Promise.allSettled(messagePromises)
+      
+      // Log summary
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+      const failed = results.length - successful
+      
+      console.log(`📊 Notification summary: ${successful} successful, ${failed} failed out of ${tabs.length} tabs`)
+      
+      if (successful === 0) {
+        console.warn('⚠️ No tabs were successfully notified! This might indicate a content script issue.')
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to query YouTube tabs:', error)
+    }
+  }
+  private async testTabCommunication(): Promise<void> {
+    console.log('🧪 Testing tab communication...')
+    
+    try {
+      const tabs = await chrome.tabs.query({ url: "*://*.youtube.com/*" })
+      console.log(`Found ${tabs.length} YouTube tabs for testing`)
+      
+      for (const tab of tabs) {
+        if (tab.id) {
+          try {
+            const response = await chrome.tabs.sendMessage(tab.id, {
+              type: 'TEST_CONNECTION',
+              timestamp: new Date().toISOString()
+            })
+            console.log(`✅ Tab ${tab.id} responded:`, response)
+          } catch (error) {
+            console.log(`❌ Tab ${tab.id} not responding:`, error instanceof Error ? error.message : 'Unknown error')
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Tab communication test failed:', error)
+    }
   }
  private async handleExternalAuthSuccess(payload: any, sendResponse: Function): Promise<void> {
     try {
@@ -166,8 +249,8 @@ class BackgroundService {
       // Clear extension auth data using auth service
       await authService.logout()
       
-      // CRITICAL FIX: Notify all YouTube tabs about logout
-      this.notifyAllYouTubeTabs(MessageType.LOGOUT, {
+      // CRITICAL FIX: Enhanced notification to all YouTube tabs
+      await this.notifyAllYouTubeTabs(MessageType.LOGOUT, {
         reason: 'Frontend logout',
         timestamp: new Date().toISOString()
       })

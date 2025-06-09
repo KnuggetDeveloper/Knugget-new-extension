@@ -399,52 +399,153 @@ function setupURLChangeDetection(): void {
 
 // FIXED: Enhanced auth refresh listener
 function setupAuthRefreshListener(): void {
+  console.log('🎧 Setting up auth refresh listener...')
+  
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("📨 Content script received message:", message);
+    console.log("📨 Content script received message:", {
+      type: message.type,
+      hasData: !!message.data,
+      timestamp: message.timestamp,
+      sender: sender.tab ? 'content-script' : 'extension'
+    });
 
-    switch (message.type) {
-      case "AUTH_STATUS_CHANGED":
-        console.log("🔄 Auth status changed:", message.data);
-        if (message.data?.isAuthenticated && message.data?.user) {
-          authState.isAuthenticated = true
-          authState.user = message.data.user
-          updateCreditsDisplay(message.data.user.credits)
-          
-          // Refresh summary content if it's currently displayed
-          const summaryContent = document.getElementById("summary-content");
-          if (summaryContent && summaryContent.style.display !== "none") {
-            loadAndDisplaySummary();
-          }
-        } else {
-          authState.isAuthenticated = false
-          authState.user = null
-          updateCreditsDisplay(0)
-        }
-        break;
+    try {
+      switch (message.type) {
+        case "AUTH_STATUS_CHANGED":
+          console.log("🔄 Auth status changed:", message.data);
+          handleAuthStatusChange(message.data)
+          break;
 
-      case "LOGOUT":
-        console.log('🚪 User logged out - clearing extension state')
-        
-        // Clear extension auth state immediately
-        authState.isAuthenticated = false
-        authState.user = null
-        updateCreditsDisplay(0)
+        case "LOGOUT":
+          console.log('🚪 User logged out - clearing extension state')
+          handleLogout(message.data)
+          break;
 
-        // Show login required if summary tab is active
+        // FIXED: Add test connection handler for debugging
+        case "TEST_CONNECTION":
+          console.log('🧪 Test connection received')
+          sendResponse({ 
+            success: true, 
+            contentScriptActive: true,
+            currentVideoId: getVideoId(),
+            authState: {
+              isAuthenticated: authState.isAuthenticated,
+              hasUser: !!authState.user
+            }
+          })
+          break;
+
+        default:
+          console.log('❓ Unknown message type:', message.type)
+          sendResponse({ success: false, error: 'Unknown message type' })
+          return;
+      }
+
+      sendResponse({ received: true, processed: true })
+    } catch (error: unknown) {
+      console.error('❌ Error processing message:', error)
+      sendResponse({ 
+        received: true, 
+        processed: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      })
+    }
+    
+    return true // Keep sendResponse active for async responses
+  })
+
+  console.log('✅ Auth refresh listener setup complete')
+}
+function handleAuthStatusChange(data: any): void {
+  if (data?.isAuthenticated && data?.user) {
+    console.log('✅ User authenticated:', data.user.email)
+    authState.isAuthenticated = true
+    authState.user = data.user
+    updateCreditsDisplay(data.user.credits)
+    
+    // Refresh summary content if it's currently displayed
+    const summaryContent = document.getElementById("summary-content");
+    if (summaryContent && summaryContent.style.display !== "none") {
+      console.log('🔄 Refreshing summary content after auth')
+      loadAndDisplaySummary();
+    }
+  } else {
+    console.log('❌ User not authenticated')
+    authState.isAuthenticated = false
+    authState.user = null
+    updateCreditsDisplay(0)
+    
+    // Force UI refresh for logout
+    refreshUIAfterLogout()
+  }
+}
+
+// FIXED: Dedicated logout handler  
+function handleLogout(data: any): void {
+  console.log('🚪 Processing logout...', data)
+  
+  // Clear extension auth state immediately
+  authState.isAuthenticated = false
+  authState.user = null
+  updateCreditsDisplay(0)
+
+  // Force comprehensive UI refresh
+  refreshUIAfterLogout()
+  
+  // Show logout notification to user
+  showLogoutNotification()
+  
+  console.log('✅ Logout processing complete')
+}
+
+
+function refreshUIAfterLogout(): void {
+  console.log('🔄 Refreshing UI after logout...')
+  
+  try {
+    // 1. Check if summary tab is active and show login required
+    const summaryTab = document.querySelector("#summary-tab");
+    const summaryContent = document.getElementById("summary-content");
+    
+    if (summaryTab && summaryTab.classList.contains("knugget-tab-active")) {
+      console.log('📋 Summary tab is active, showing login required')
+      if (summaryContent) {
+        showLoginRequired(summaryContent)
+      }
+    }
+    
+    // 2. Reset any save buttons that might be visible
+    const saveButton = document.getElementById("save-btn");
+    if (saveButton) {
+      saveButton.style.display = "none";
+      console.log('🔘 Save button hidden')
+    }
+    
+    // 3. Update credits display
+    updateCreditsDisplay(0)
+    console.log('💳 Credits display updated to 0')
+    
+    // 4. Force refresh of the current tab content if needed
+    const currentActiveTab = document.querySelector('.knugget-tab-active')
+    if (currentActiveTab) {
+      const tabType = currentActiveTab.id.includes('summary') ? 'summary' : 'transcript'
+      console.log(`🔄 Refreshing ${tabType} tab content`)
+      
+      if (tabType === 'summary') {
         const summaryContent = document.getElementById("summary-content");
-        if (summaryContent && summaryContent.style.display !== "none") {
+        if (summaryContent) {
           showLoginRequired(summaryContent)
         }
-        
-        // Show logout notification to user
-        showLogoutNotification()
-        break
+      }
     }
-
-    sendResponse({ received: true })
-    return true
-  })
+    
+    console.log('✅ UI refresh after logout completed')
+  } catch (error) {
+    console.error('❌ Error during UI refresh:', error)
+  }
 }
+
+
 function showLogoutNotification(): void {
   // Create a temporary notification element
   const notification = document.createElement('div')
@@ -476,6 +577,7 @@ function showLogoutNotification(): void {
     }, 300)
   }, 3000)
 }
+
 function updateCreditsDisplay(credits: number): void {
   const creditsDisplay = document.getElementById("credits-display");
   if (creditsDisplay) {
