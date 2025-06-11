@@ -15,6 +15,8 @@
     "https://www.youtube.com/*",
     "http://localhost:*/*",
     "https://localhost:*/*",
+    "https://www.linkedin.com/*",
+    "https://linkedin.com/*",
     "https://*.knugget.com/*",
     "http://localhost:8000/*",
     "https://knugget-new-backend.onrender.com/*",
@@ -26,7 +28,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*", "https://knugget-new-backend.onrender.com/*"],
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://www.linkedin.com/*",
+        "https://linkedin.com/*"
+      ],
       "js": ["youtube.js"],
       "css": ["styles.css"],
       "run_at": "document_end"
@@ -48,7 +55,13 @@
   "web_accessible_resources": [
     {
       "resources": ["icons/*"],
-      "matches": ["https://www.youtube.com/*", "https://knugget-new-backend.onrender.com/*"]
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://knugget-new-backend.onrender.com/*",
+        "https://www.linkedin.com/*",
+        "https://linkedin.com/*"
+      ]
     }
   ]
 }

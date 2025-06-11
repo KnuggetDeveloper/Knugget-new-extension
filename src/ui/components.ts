@@ -1,386 +1,440 @@
-// ui/components.ts - Fixed panel implementation matching working version
-import { createElement } from "../utils/dom";
-import { Summary, TranscriptSegment, User } from "../types";
-import { selectors, config } from "../config";
+export function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-export class KnuggetPanel {
-  private container: HTMLElement;
-  private currentTab: "transcript" | "summary" = "transcript";
-  private onLoginClick?: () => void;
-  private onGenerateClick?: () => void;
-  private onSaveClick?: () => void;
-
-  constructor() {
-    this.container = this.createPanelStructure();
-    this.attachEventListeners();
-  }
-
-  // Create the main panel structure with proper YouTube integration styling
-  private createPanelStructure(): HTMLElement {
-    return createElement("div", {
-      id: "knugget-panel",
-      className: "knugget-panel",
-      innerHTML: `
-        <div class="knugget-header">
-          <div class="knugget-logo">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="currentColor"/>
-            </svg>
-            <span>Knugget</span>
-          </div>
-          <div class="knugget-credits">
-            <span id="knugget-credits">3 credits left</span>
-          </div>
-        </div>
-        
-        <div class="knugget-tabs">
-          <button id="knugget-tab-transcript" class="knugget-tab active" data-tab="transcript">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-            </svg>
-            Transcript
-          </button>
-          <button id="knugget-tab-summary" class="knugget-tab" data-tab="summary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9,5V9H21V5M9,19H21V15H9M9,14H21V10H9M4,9H8L6,7M4,19H8L6,17M4,14H8L6,12"/>
-            </svg>
-            Summary
-          </button>
-        </div>
-        
-        <div class="knugget-content">
-          <div id="knugget-content-transcript" class="knugget-tab-content active">
-            <div class="knugget-loading">
-              <div class="spinner"></div>
-              <p>Loading transcript...</p>
-            </div>
-          </div>
-          
-          <div id="knugget-content-summary" class="knugget-tab-content">
-            <div class="knugget-auth-prompt">
-              <div class="auth-icon">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="#FF6B35">
-                  <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
-                </svg>
-              </div>
-              <h3>Sign in to generate summaries</h3>
-              <p>Get AI-powered insights and key takeaways from any YouTube video</p>
-              <div class="auth-buttons">
-                <button id="knugget-login-btn" class="btn btn-primary">Sign In</button>
-                <button id="knugget-signup-btn" class="btn btn-secondary">Sign Up</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="knugget-footer">
-          <button id="knugget-settings-btn" class="btn-icon" title="Settings">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
-            </svg>
-          </button>
-          <span class="knugget-version">v1.0.0</span>
-        </div>
-      `,
-    });
-  }
-
-  // Attach event listeners to panel elements
-  private attachEventListeners(): void {
-    // Handle tab switching between transcript and summary
-    const tabButtons = this.container.querySelectorAll(".knugget-tab");
-    tabButtons.forEach((button) => {
-      button.addEventListener("click", (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const tabName = target.dataset.tab as "transcript" | "summary";
-        this.switchTab(tabName);
-      });
-    });
-
-    // Handle authentication button clicks
-    const loginBtn = this.container.querySelector("#knugget-login-btn");
-    const signupBtn = this.container.querySelector("#knugget-signup-btn");
-
-    loginBtn?.addEventListener("click", () => this.onLoginClick?.());
-    signupBtn?.addEventListener("click", () => this.onLoginClick?.()); // Both go to login for now
-
-    // Handle settings button click
-    const settingsBtn = this.container.querySelector("#knugget-settings-btn");
-    settingsBtn?.addEventListener("click", () => {
-      window.open(`${config.websiteUrl}/settings`, "_blank");
-    });
-  }
-
-  // Switch between transcript and summary tabs
-  switchTab(tab: "transcript" | "summary"): void {
-    this.currentTab = tab;
-
-    // Update active tab styling
-    const tabs = this.container.querySelectorAll(".knugget-tab");
-    tabs.forEach((t) => t.classList.remove("active"));
-
-    const activeTab = this.container.querySelector(`[data-tab="${tab}"]`);
-    activeTab?.classList.add("active");
-
-    // Show corresponding content
-    const contents = this.container.querySelectorAll(".knugget-tab-content");
-    contents.forEach((c) => c.classList.remove("active"));
-
-    const activeContent = this.container.querySelector(
-      `#knugget-content-${tab}`
-    );
-    activeContent?.classList.add("active");
-  }
-
-  // Display transcript segments with timestamp navigation
-  showTranscript(segments: TranscriptSegment[]): void {
-    const transcriptContent = this.container.querySelector(
-      "#knugget-content-transcript"
-    );
-    if (!transcriptContent) return;
-
-    if (segments.length === 0) {
-      transcriptContent.innerHTML = `
-        <div class="knugget-empty">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="#ccc">
-            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-          </svg>
-          <p>No transcript available for this video</p>
-        </div>
-      `;
+// Enhanced element waiting with site-specific optimizations
+export function waitForElement(
+  selector: string,
+  timeout: number = 10000,
+  site?: 'youtube' | 'linkedin'
+): Promise<Element | null> {
+  return new Promise((resolve) => {
+    // Check if element already exists
+    const element = document.querySelector(selector);
+    if (element) {
+      resolve(element);
       return;
     }
 
-    // Generate HTML for transcript segments
-    const segmentsHtml = segments
-      .map(
-        (segment) => `
-      <div class="transcript-segment" data-start="${segment.startSeconds || 0}">
-        <span class="timestamp">${segment.timestamp}</span>
-        <span class="text">${segment.text}</span>
-      </div>
-    `
-      )
-      .join("");
-
-    transcriptContent.innerHTML = `
-      <div class="transcript-container">
-        ${segmentsHtml}
-      </div>
-    `;
-
-    // Add click handlers for video seek functionality
-    const timestampElements = transcriptContent.querySelectorAll(
-      ".transcript-segment"
-    );
-    timestampElements.forEach((element) => {
-      element.addEventListener("click", () => {
-        const startTime = element.getAttribute("data-start");
-        if (startTime) {
-          this.seekVideo(parseInt(startTime));
+    // Set up mutation observer with site-specific optimizations
+    const observerConfig = site === 'linkedin' 
+      ? {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["data-id", "data-urn", "class"],
         }
-      });
+      : {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["class", "id", "style"],
+        };
+
+    const observer = new MutationObserver(() => {
+      const element = document.querySelector(selector);
+      if (element) {
+        observer.disconnect();
+        clearTimeout(timeoutId);
+        resolve(element);
+      }
+    });
+
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      observer.disconnect();
+      console.warn(`Element not found within ${timeout}ms: ${selector}`);
+      resolve(null);
+    }, timeout);
+
+    // Start observing
+    observer.observe(document.body, observerConfig);
+  });
+}
+
+// Enhanced click function with site-specific handling
+export async function clickElement(element: Element, site?: 'youtube' | 'linkedin'): Promise<void> {
+  if (!element) {
+    console.warn("Cannot click null element");
+    return;
+  }
+
+  try {
+    // LinkedIn often requires different event handling
+    if (site === 'linkedin') {
+      // Scroll element into view first for LinkedIn
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await wait(200);
+    }
+
+    // Method 1: Try native click for HTMLElements
+    if (element instanceof HTMLElement) {
+      element.click();
+      return;
+    }
+
+    // Method 2: Dispatch comprehensive mouse events
+    const events = [
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        button: 0,
+      }),
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        button: 0,
+      }),
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        button: 0,
+      }),
+    ];
+
+    for (const event of events) {
+      element.dispatchEvent(event);
+      await wait(50);
+    }
+
+    // Method 3: Try focus and enter key for accessibility
+    if (element instanceof HTMLElement) {
+      element.focus();
+      await wait(100);
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    }
+  } catch (error) {
+    console.error("Error clicking element:", error);
+  }
+}
+
+// Create DOM element with enhanced options
+export function createElement<K extends keyof HTMLElementTagNameMap>(
+  tagName: K,
+  options: {
+    className?: string;
+    id?: string;
+    innerHTML?: string;
+    textContent?: string;
+    attributes?: Record<string, string>;
+    styles?: Partial<CSSStyleDeclaration>;
+    children?: (HTMLElement | string)[];
+    dataset?: Record<string, string>; // NEW
+  } = {}
+): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tagName);
+
+  if (options.className) element.className = options.className;
+  if (options.id) element.id = options.id;
+  if (options.innerHTML) element.innerHTML = options.innerHTML;
+  if (options.textContent) element.textContent = options.textContent;
+
+  if (options.attributes) {
+    Object.entries(options.attributes).forEach(([key, value]) => {
+      element.setAttribute(key, value);
     });
   }
 
-  // Show summary interface for authenticated users
-  showSummaryForAuthenticated(user: User): void {
-    const summaryContent = this.container.querySelector(
-      "#knugget-content-summary"
-    );
-    if (!summaryContent) return;
-
-    // Update credits display in header
-    const creditsElement = this.container.querySelector("#knugget-credits");
-    if (creditsElement) {
-      creditsElement.textContent = `${user.credits} credits left`;
-    }
-
-    // Show generate summary prompt
-    summaryContent.innerHTML = `
-      <div class="knugget-summary-prompt">
-        <div class="summary-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="#FF6B35">
-            <path d="M9,5V9H21V5M9,19H21V15H9M9,14H21V10H9M4,9H8L6,7M4,19H8L6,17M4,14H8L6,12"/>
-          </svg>
-        </div>
-        <h3>Generate AI Summary</h3>
-        <p>Get key insights and takeaways from this video using AI</p>
-        <button id="knugget-generate-btn" class="btn btn-primary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-          </svg>
-          Generate Summary (1 credit)
-        </button>
-      </div>
-    `;
-
-    // Attach generate button event listener
-    const generateBtn = summaryContent.querySelector("#knugget-generate-btn");
-    generateBtn?.addEventListener("click", () => this.onGenerateClick?.());
+  if (options.styles) {
+    Object.assign(element.style, options.styles);
   }
 
-  // Show loading state during summary generation
-  showSummaryLoading(): void {
-    const summaryContent = this.container.querySelector(
-      "#knugget-content-summary"
-    );
-    if (!summaryContent) return;
-
-    summaryContent.innerHTML = `
-      <div class="knugget-loading">
-        <div class="spinner"></div>
-        <p>Generating AI summary...</p>
-        <small>This may take 10-30 seconds</small>
-      </div>
-    `;
-  }
-
-  // Display generated summary with key points and save functionality
-  showSummary(summary: Summary): void {
-    const summaryContent = this.container.querySelector(
-      "#knugget-content-summary"
-    );
-    if (!summaryContent) return;
-
-    // Generate HTML for key points
-    const keyPointsHtml = summary.keyPoints
-      .map(
-        (point) => `
-      <div class="key-point">
-        <div class="bullet">•</div>
-        <div class="point-text">${point}</div>
-      </div>
-    `
-      )
-      .join("");
-
-    summaryContent.innerHTML = `
-      <div class="summary-container">
-        <div class="summary-section">
-          <h4>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9,5V9H21V5M9,19H21V15H9M9,14H21V10H9M4,9H8L6,7M4,19H8L6,17M4,14H8L6,12"/>
-            </svg>
-            Key Points
-          </h4>
-          <div class="key-points">
-            ${keyPointsHtml}
-          </div>
-        </div>
-        
-        <div class="summary-section">
-          <h4>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-            </svg>
-            Full Summary
-          </h4>
-          <div class="full-summary">
-            <p>${summary.fullSummary}</p>
-          </div>
-        </div>
-        
-        <div class="summary-actions">
-          <button id="knugget-save-btn" class="btn btn-secondary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17,3H7A2,2 0 0,0 5,5V21L12,18L19,21V5C19,3.89 18.1,3 17,3Z"/>
-            </svg>
-            Save Summary
-          </button>
-          <button class="btn btn-outline" onclick="window.open('${config.websiteUrl}/dashboard', '_blank')">
-            View All Summaries
-          </button>
-        </div>
-      </div>
-    `;
-
-    // Attach save button event listener
-    const saveBtn = summaryContent.querySelector("#knugget-save-btn");
-    saveBtn?.addEventListener("click", () => this.onSaveClick?.());
-  }
-
-  // Show error state with optional retry functionality
-  showError(message: string, onRetry?: () => void): void {
-    const activeContent = this.container.querySelector(
-      ".knugget-tab-content.active"
-    );
-    if (!activeContent) return;
-
-    activeContent.innerHTML = `
-      <div class="knugget-error">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="#ff4757">
-          <path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-        </svg>
-        <p>${message}</p>
-        ${
-          onRetry
-            ? '<button class="btn btn-primary" id="retry-btn">Try Again</button>'
-            : ""
-        }
-      </div>
-    `;
-
-    // Attach retry button event listener if provided
-    if (onRetry) {
-      const retryBtn = activeContent.querySelector("#retry-btn");
-      retryBtn?.addEventListener("click", onRetry);
-    }
-  }
-
-  // Seek YouTube video to specific timestamp
-  private seekVideo(seconds: number): void {
-    const video = document.querySelector("video") as HTMLVideoElement;
-    if (video) {
-      video.currentTime = seconds;
-    }
-  }
-
-  // Set event handler callbacks
-  setOnLoginClick(handler: () => void): void {
-    this.onLoginClick = handler;
-  }
-
-  setOnGenerateClick(handler: () => void): void {
-    this.onGenerateClick = handler;
-  }
-
-  setOnSaveClick(handler: () => void): void {
-    this.onSaveClick = handler;
-  }
-
-  // Panel visibility management with animations
-  show(): void {
-    this.container.style.display = "block";
-    // Trigger animation after DOM update
-    requestAnimationFrame(() => {
-      this.container.classList.add("visible");
+  // NEW: Dataset support for LinkedIn data attributes
+  if (options.dataset) {
+    Object.entries(options.dataset).forEach(([key, value]) => {
+      element.dataset[key] = value;
     });
   }
 
-  hide(): void {
-    this.container.classList.remove("visible");
-    // Hide after animation completes
-    setTimeout(() => {
-      this.container.style.display = "none";
-    }, 300);
+  if (options.children) {
+    options.children.forEach((child) => {
+      if (typeof child === "string") {
+        element.appendChild(document.createTextNode(child));
+      } else {
+        element.appendChild(child);
+      }
+    });
   }
 
-  toggle(): void {
-    if (this.container.classList.contains("visible")) {
-      this.hide();
-    } else {
-      this.show();
+  return element;
+}
+
+// Find ancestor element that matches selector
+export function findAncestor(
+  element: Element,
+  selector: string
+): Element | null {
+  let current = element.parentElement;
+  while (current) {
+    if (current.matches(selector)) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+// Enhanced debounce with site-specific delays
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number,
+  options: { leading?: boolean; site?: 'youtube' | 'linkedin' } = {}
+): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout>;
+  let lastCallTime = 0;
+  
+  // Adjust wait time based on site
+  if (options.site === 'linkedin') {
+    wait = Math.max(wait, 300); // LinkedIn needs longer debounce
+  }
+
+  return (...args: Parameters<T>) => {
+    const now = Date.now();
+    
+    if (options.leading && now - lastCallTime >= wait) {
+      lastCallTime = now;
+      func(...args);
+    }
+    
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      lastCallTime = now;
+      func(...args);
+    }, wait);
+  };
+}
+
+// Enhanced video ID extraction with error handling
+export function getVideoId(): string | null {
+  try {
+    // Method 1: URL parameter
+    const url = new URL(window.location.href);
+    let videoId = url.searchParams.get("v");
+
+    if (videoId && videoId.length === 11) {
+      return videoId;
+    }
+
+    // Method 2: YouTube shorts format
+    const shortsMatch = window.location.pathname.match(
+      /\/shorts\/([a-zA-Z0-9_-]{11})/
+    );
+    if (shortsMatch) {
+      return shortsMatch[1];
+    }
+
+    // Method 3: Extract from page data
+    const ytInitialData = (window as any).ytInitialData;
+    if (ytInitialData?.currentVideoEndpoint?.watchEndpoint?.videoId) {
+      const id = ytInitialData.currentVideoEndpoint.watchEndpoint.videoId;
+      if (id && id.length === 11) return id;
+    }
+
+    // Method 4: Canonical URL
+    const canonicalLink = document.querySelector(
+      'link[rel="canonical"]'
+    ) as HTMLLinkElement;
+    if (canonicalLink) {
+      const canonicalUrl = new URL(canonicalLink.href);
+      const canonicalVideoId = canonicalUrl.searchParams.get("v");
+      if (canonicalVideoId && canonicalVideoId.length === 11) {
+        return canonicalVideoId;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error extracting video ID:', error);
+    return null;
+  }
+}
+
+// NEW: LinkedIn post ID extraction
+export function getLinkedInPostId(element: Element): string | null {
+  try {
+    // Method 1: data-id attribute
+    const dataId = element.getAttribute('data-id');
+    if (dataId) return dataId;
+
+    // Method 2: data-urn attribute
+    const dataUrn = element.getAttribute('data-urn');
+    if (dataUrn) return dataUrn;
+
+    // Method 3: Extract from URL
+    const links = element.querySelectorAll('a[href*="/posts/"]');
+    for (const link of Array.from(links)) {
+      const href = link.getAttribute('href');
+      if (href) {
+        const match = href.match(/\/posts\/([^/?]+)/);
+        if (match) return match[1];
+      }
+    }
+
+    // Method 4: Generate from content hash
+    const textContent = element.textContent?.trim() || '';
+    if (textContent.length > 10) {
+      return btoa(textContent.substring(0, 50))
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .substring(0, 20);
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error extracting LinkedIn post ID:', error);
+    return null;
+  }
+}
+
+// NEW: Site detection utilities
+export function detectCurrentSite(): 'youtube' | 'linkedin' | 'unknown' {
+  const hostname = window.location.hostname.toLowerCase();
+  
+  if (hostname.includes('youtube.com')) {
+    return 'youtube';
+  } else if (hostname.includes('linkedin.com')) {
+    return 'linkedin';
+  }
+  
+  return 'unknown';
+}
+
+// NEW: Check if current page is supported
+export function isSupportedPage(): boolean {
+  const site = detectCurrentSite();
+  
+  switch (site) {
+    case 'youtube':
+      return window.location.pathname === '/watch' && 
+             window.location.search.includes('v=');
+    case 'linkedin':
+      const supportedPaths = ['/feed', '/in/', '/company/', '/posts/'];
+      return supportedPaths.some(path => 
+        window.location.pathname.includes(path)
+      );
+    default:
+      return false;
+  }
+}
+
+// Enhanced video metadata extraction
+export function getVideoMetadata() {
+  const videoId = getVideoId();
+  if (!videoId) return null;
+
+  // Enhanced title selectors for different YouTube layouts
+  const titleSelectors = [
+    "h1.ytd-watch-metadata #title",
+    "h1.title",
+    "#container h1",
+    "ytd-watch-metadata h1",
+    ".ytd-video-primary-info-renderer h1",
+    'h1[class*="title"]',
+    ".ytd-videoPrimaryInfoRenderer h1",
+    "ytd-video-primary-info-renderer .title",
+  ];
+
+  let titleElement = null;
+  let title = "Unknown Title";
+
+  for (const selector of titleSelectors) {
+    titleElement = document.querySelector(selector);
+    if (titleElement?.textContent?.trim()) {
+      title = titleElement.textContent.trim();
+      break;
     }
   }
 
-  // Get the panel DOM element
-  getElement(): HTMLElement {
-    return this.container;
+  // Enhanced channel selectors
+  const channelSelectors = [
+    "#top-row .ytd-channel-name a",
+    "#channel-name a",
+    "#owner-name a",
+    "ytd-channel-name a",
+    ".ytd-video-owner-renderer a",
+    "ytd-video-owner-renderer .ytd-channel-name a",
+    "#upload-info ytd-channel-name a",
+    ".ytd-c4-tabbed-header-renderer .ytd-channel-name a",
+  ];
+
+  let channelElement = null;
+  let channelName = "Unknown Channel";
+
+  for (const selector of channelSelectors) {
+    channelElement = document.querySelector(selector);
+    if (channelElement?.textContent?.trim()) {
+      channelName = channelElement.textContent.trim();
+      break;
+    }
   }
 
-  // Clean up and remove panel from DOM
-  destroy(): void {
-    this.container.remove();
+  // Duration extraction
+  const videoPlayer = document.querySelector("video") as HTMLVideoElement;
+  let duration = "";
+
+  if (videoPlayer && videoPlayer.duration) {
+    duration = formatDuration(videoPlayer.duration);
   }
+
+  return {
+    videoId,
+    title,
+    channelName,
+    url: window.location.href,
+    duration,
+    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+  };
+}
+
+// Format duration from seconds to readable format
+function formatDuration(seconds: number): string {
+  if (!seconds || isNaN(seconds)) return "";
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}
+
+// NEW: Throttle function for performance optimization
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean;
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+// NEW: Check if element is visible in viewport
+export function isElementVisible(element: Element): boolean {
+  const rect = element.getBoundingClientRect();
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+  );
 }

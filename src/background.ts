@@ -1,4 +1,3 @@
-// src/background.ts - Enhanced background service with proper logout sync
 import { authService } from "./services/auth";
 import { MessageType, AuthData } from "./types";
 import { config } from "./config";
@@ -9,10 +8,10 @@ class BackgroundService {
   }
 
   private initialize(): void {
-    console.log("🎯 Knugget Background Service starting...");
+    console.log("🎯 Knugget Multi-Site Background Service starting...");
     this.setupEventListeners();
     this.setupExternalMessageListener();
-    console.log("✅ Background service initialized");
+    console.log("✅ Multi-site background service initialized");
   }
 
   private setupEventListeners(): void {
@@ -20,7 +19,7 @@ class BackgroundService {
       console.log("Extension installed/updated:", details.reason);
       if (details.reason === "install") {
         chrome.tabs.create({
-          url: `${config.websiteUrl}/welcome?source=extension`,
+          url: `${config.websiteUrl}/welcome?source=extension&multisite=true`,
         });
       }
     });
@@ -92,11 +91,23 @@ class BackgroundService {
         case MessageType.LOGOUT:
           console.log('🚪 Handling internal logout request')
           await authService.logout()
-          await this.notifyAllYouTubeTabs(MessageType.LOGOUT, {
+          await this.notifyAllSupportedSiteTabs(MessageType.LOGOUT, {
             reason: 'Internal logout',
             timestamp: new Date().toISOString()
           })
           sendResponse({ success: true });
+          break;
+
+        // NEW: LinkedIn-specific messages
+        case "LINKEDIN_POST_SAVED":
+          console.log('📝 LinkedIn post saved successfully');
+          await this.notifyAllLinkedInTabs('POST_SAVED', message.payload);
+          sendResponse({ success: true });
+          break;
+
+        case "GET_SITE_PERMISSIONS":
+          const permissions = await this.checkSitePermissions();
+          sendResponse({ permissions });
           break;
 
         default:
@@ -134,14 +145,14 @@ class BackgroundService {
 
       await authService.handleExternalAuthChange(authData);
 
-      // Notify all YouTube tabs about auth success
-      await this.notifyAllYouTubeTabs(MessageType.AUTH_STATUS_CHANGED, {
+      // Notify ALL supported sites about auth success
+      await this.notifyAllSupportedSiteTabs(MessageType.AUTH_STATUS_CHANGED, {
         isAuthenticated: true,
         user: authData.user,
       });
 
       sendResponse({ success: true });
-      console.log("✅ External auth success handled");
+      console.log("✅ External auth success handled for all sites");
     } catch (error) {
       console.error("❌ Failed to handle external auth success:", error);
       sendResponse({
@@ -165,32 +176,39 @@ class BackgroundService {
       // Clear extension auth data
       await authService.logout()
 
-      // Notify all YouTube tabs about logout
-      await this.notifyAllYouTubeTabs(MessageType.LOGOUT, {
+      // Notify ALL supported sites about logout
+      await this.notifyAllSupportedSiteTabs(MessageType.LOGOUT, {
         reason: 'Frontend logout',
         timestamp: new Date().toISOString()
       })
 
       sendResponse({ success: true })
-      console.log('✅ External logout handled - extension auth cleared')
+      console.log('✅ External logout handled - extension auth cleared for all sites')
     } catch (error) {
       console.error('❌ Failed to handle external logout:', error)
       sendResponse({ success: false, error: 'Logout failed' })
     }
   }
 
-  private async notifyAllYouTubeTabs(type: MessageType, data?: any): Promise<void> {
-    console.log(`📡 Notifying all YouTube tabs of: ${type}`)
+  // UPDATED: Notify all supported sites (YouTube + LinkedIn)
+  private async notifyAllSupportedSiteTabs(type: MessageType, data?: any): Promise<void> {
+    console.log(`📡 Notifying all supported site tabs of: ${type}`)
 
     try {
+      // Get tabs from all supported sites
       const tabs = await chrome.tabs.query({
-        url: ["*://*.youtube.com/*", "*://youtube.com/*"]
+        url: [
+          "*://*.youtube.com/*", 
+          "*://youtube.com/*",
+          "*://*.linkedin.com/*",
+          "*://linkedin.com/*"
+        ]
       })
 
-      console.log(`🔍 Found ${tabs.length} YouTube tabs`)
+      console.log(`🔍 Found ${tabs.length} supported site tabs`)
 
       if (tabs.length === 0) {
-        console.log('⚠️ No YouTube tabs found to notify')
+        console.log('⚠️ No supported site tabs found to notify')
         return
       }
 
@@ -229,7 +247,51 @@ class BackgroundService {
       }
 
     } catch (error) {
-      console.error('❌ Failed to query YouTube tabs:', error)
+      console.error('❌ Failed to query supported site tabs:', error)
+    }
+  }
+
+  // NEW: Notify LinkedIn tabs specifically
+  private async notifyAllLinkedInTabs(type: string, data?: any): Promise<void> {
+    console.log(`📡 Notifying LinkedIn tabs of: ${type}`)
+
+    try {
+      const tabs = await chrome.tabs.query({
+        url: ["*://*.linkedin.com/*", "*://linkedin.com/*"]
+      })
+
+      if (tabs.length === 0) {
+        console.log('⚠️ No LinkedIn tabs found')
+        return
+      }
+
+      for (const tab of tabs) {
+        if (tab.id) {
+          try {
+            await chrome.tabs.sendMessage(tab.id, { type, data })
+          } catch (error) {
+            console.log(`Could not notify LinkedIn tab ${tab.id}:`, error)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to notify LinkedIn tabs:', error)
+    }
+  }
+
+  // NEW: Check site permissions
+  private async checkSitePermissions(): Promise<{ youtube: boolean; linkedin: boolean }> {
+    try {
+      const permissions = await chrome.permissions.getAll();
+      const origins = permissions.origins || [];
+      
+      return {
+        youtube: origins.some(origin => origin.includes('youtube.com')),
+        linkedin: origins.some(origin => origin.includes('linkedin.com'))
+      };
+    } catch (error) {
+      console.error('Error checking permissions:', error);
+      return { youtube: false, linkedin: false };
     }
   }
 

@@ -1,4 +1,3 @@
-// webpack.config.js - Fixed build configuration to match manifest
 const path = require("path");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
@@ -10,8 +9,7 @@ module.exports = (env, argv) => {
   return {
     entry: {
       background: "./src/background.ts",
-      // Fix: Change content.ts to youtube.js to match manifest
-      youtube: "./src/content.ts",
+      content: "./src/content.ts", // Fixed: Now correctly named
       popup: "./src/popup.ts",
     },
     output: {
@@ -51,7 +49,6 @@ module.exports = (env, argv) => {
       new CopyWebpackPlugin({
         patterns: [
           {
-            // Fix: Use the manifest from src folder
             from: "./src/manifest.json",
             to: "manifest.json",
           },
