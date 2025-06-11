@@ -524,35 +524,6 @@ class ApiService {
     // Retry the original request
     return this.makeRequest<T>(endpoint, method, data);
   }
-  async saveLinkedInPost(postData: any): Promise<ApiResponse<any>> {
-    try {
-      console.log("💾 Saving LinkedIn post...");
-      
-      const result = await this.makeRequest<any>(
-        "/posts/linkedin",
-        "POST",
-        postData
-      );
-  
-      if (result.success) {
-        console.log("✅ LinkedIn post saved successfully");
-        this.showNotification("Post saved successfully!", "success");
-      } else {
-        console.error("❌ Failed to save LinkedIn post:", result.error);
-        this.showNotification(result.error || "Failed to save post.", "error");
-      }
-  
-      return result;
-    } catch (error) {
-      console.error("❌ Save LinkedIn post error:", error);
-      this.showNotification("Failed to save post. Please try again.", "error");
-      
-      return {
-        success: false,
-        error: "Failed to save post due to an unexpected error.",
-      };
-    }
-  }
 }
 
 export const apiService = new ApiService();

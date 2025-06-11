@@ -1,6 +1,5 @@
 class KnuggetPopup {
   private elements: { [key: string]: HTMLElement } = {};
-  private currentSite: 'youtube' | 'linkedin' | 'unknown' = 'unknown';
 
   constructor() {
     this.initializeElements();
@@ -53,57 +52,19 @@ class KnuggetPopup {
       }
 
       const url = new URL(tab.url);
-      const hostname = url.hostname.toLowerCase();
 
-      if (hostname.includes("youtube.com")) {
-        this.currentSite = 'youtube';
+      if (url.hostname.includes("youtube.com")) {
         if (url.pathname === "/watch") {
           this.updateStatus("active", "Active on YouTube video");
         } else {
           this.updateStatus("inactive", "Navigate to a YouTube video");
         }
-      } else if (hostname.includes("linkedin.com")) {
-        this.currentSite = 'linkedin';
-        const supportedPaths = ['/feed', '/in/', '/company/', '/posts/'];
-        const isSupported = supportedPaths.some(path => url.pathname.includes(path));
-        
-        if (isSupported) {
-          this.updateStatus("active", "Active on LinkedIn");
-        } else {
-          this.updateStatus("inactive", "Navigate to LinkedIn feed or profile");
-        }
       } else {
-        this.currentSite = 'unknown';
-        this.updateStatus("inactive", "Only works on YouTube and LinkedIn");
+        this.updateStatus("inactive", "Only works on YouTube videos");
       }
-
-      // Update popup content based on current site
-      this.updatePopupForSite();
     } catch (error) {
       console.error("Error checking current tab:", error);
       this.updateStatus("inactive", "Error detecting page");
-    }
-  }
-
-  private updatePopupForSite(): void {
-    // Update the dashboard button text based on current site
-    const dashboardBtn = this.elements["dashboard-btn"];
-    const summariesBtn = this.elements["summaries-btn"];
-    
-    if (dashboardBtn && summariesBtn) {
-      switch (this.currentSite) {
-        case 'youtube':
-          summariesBtn.textContent = "Summaries";
-          summariesBtn.onclick = () => this.openSummaries();
-          break;
-        case 'linkedin':
-          summariesBtn.textContent = "Saved Posts";
-          summariesBtn.onclick = () => this.openLinkedInPosts();
-          break;
-        default:
-          summariesBtn.textContent = "Dashboard";
-          summariesBtn.onclick = () => this.openDashboard();
-      }
     }
   }
 
@@ -173,7 +134,7 @@ class KnuggetPopup {
   private handleLogin(): void {
     chrome.runtime.sendMessage({
       type: "OPEN_LOGIN_PAGE",
-      payload: { source: "popup", site: this.currentSite },
+      payload: { source: "popup" },
     });
     window.close();
   }
@@ -181,7 +142,7 @@ class KnuggetPopup {
   private handleSignup(): void {
     const websiteUrl = this.getWebsiteUrl();
     chrome.tabs.create({
-      url: `${websiteUrl}/auth/signup?source=extension&extensionId=${chrome.runtime.id}&site=${this.currentSite}`,
+      url: `${websiteUrl}/auth/signup?source=extension&extensionId=${chrome.runtime.id}`,
     });
     window.close();
   }
@@ -193,7 +154,9 @@ class KnuggetPopup {
         (this.elements["logout-btn"] as HTMLButtonElement).disabled = true;
       }
 
+      // Send logout message to background
       await chrome.runtime.sendMessage({ type: "LOGOUT" });
+
       this.showLoginSection();
     } catch (error) {
       console.error("Logout error:", error);
@@ -217,12 +180,6 @@ class KnuggetPopup {
     window.close();
   }
 
-  private openLinkedInPosts(): void {
-    const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/linkedin-posts` });
-    window.close();
-  }
-
   private openSettings(): void {
     const websiteUrl = this.getWebsiteUrl();
     chrome.tabs.create({ url: `${websiteUrl}/settings` });
@@ -231,18 +188,18 @@ class KnuggetPopup {
 
   private openHelp(): void {
     const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/help?site=${this.currentSite}` });
+    chrome.tabs.create({ url: `${websiteUrl}/help` });
     window.close();
   }
 
   private openFeedback(): void {
     const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/feedback?source=extension&site=${this.currentSite}` });
+    chrome.tabs.create({ url: `${websiteUrl}/feedback?source=extension` });
     window.close();
   }
 
   private getWebsiteUrl(): string {
-    return "https://knugget-new-client.vercel.app";
+    return "https://knugget-new-client.vercel.app"; // Frontend URL
   }
 }
 
