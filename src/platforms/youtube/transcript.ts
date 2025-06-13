@@ -1,7 +1,6 @@
 // services/transcript.ts - Enhanced transcript extraction with better YouTube compatibility
-import { TranscriptSegment, ApiResponse } from "../types";
-import { selectors } from "../config";
-import { wait, waitForElement, clickElement } from "../utils/dom";
+import { TranscriptSegment, ApiResponse } from "../../types";
+import { wait, waitForElement, clickElement } from "../../shared/utils/dom";
 
 class TranscriptService {
   // Main method to extract transcript from YouTube video

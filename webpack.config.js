@@ -9,7 +9,7 @@ module.exports = (env, argv) => {
   return {
     entry: {
       background: "./src/background.ts",
-      content: "./src/content.ts", // Fixed: Now correctly named
+      youtube: "./src/platforms/youtube/content.ts",  // Updated path
       popup: "./src/popup.ts",
     },
     output: {

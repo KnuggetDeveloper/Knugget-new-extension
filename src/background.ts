@@ -1,5 +1,5 @@
 // src/background.ts - Enhanced background service with proper logout sync
-import { authService } from "./services/auth";
+import { authService } from "./shared/auth";
 import { MessageType, AuthData } from "./types";
 import { config } from "./config";
 

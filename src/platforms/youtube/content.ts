@@ -1,8 +1,7 @@
-// src/content.ts - Enhanced content script with better logout handling
-import "./styles.css";
-import { transcriptService } from "./services/transcript";
-import { User } from "./types";
-import { getVideoId, debounce } from "./utils/dom";
+import "../../styles.css";
+import { transcriptService } from "./transcript";
+import { User } from "../../types";
+import { getVideoId, debounce } from "../../shared/utils/dom";
 
 let currentVideoId: string | null = null;
 let knuggetPanel: HTMLElement | null = null;
@@ -241,7 +240,7 @@ async function loadAndDisplayTranscript(): Promise<void> {
     const segments = transcriptResponse.data;
     const segmentsHTML = segments
       .map(
-        (segment) => `
+        (segment: any) => `
       <div class="transcript-segment">
         <span class="knugget-timestamp">${segment.timestamp}</span>
         <span class="knugget-transcript-text">${segment.text}</span>
