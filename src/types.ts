@@ -1,4 +1,4 @@
-// types.ts
+// src/types.ts - Unified Types for Multi-Platform Extension
 export interface User {
   id: string;
   name: string;
@@ -16,6 +16,14 @@ export interface AuthData {
   loginTime: string;
 }
 
+// Platform Support
+export enum Platform {
+  YOUTUBE = "youtube",
+  LINKEDIN = "linkedin",
+  UNKNOWN = "unknown"
+}
+
+// YouTube-specific types
 export interface TranscriptSegment {
   timestamp: string;
   text: string;
@@ -44,6 +52,35 @@ export interface Summary {
   saved?: boolean;
 }
 
+// LinkedIn-specific types
+export interface LinkedInPost {
+  id: string;
+  author: string;
+  content: string;
+  url: string;
+  platform: Platform.LINKEDIN;
+  savedAt: string;
+  source: string;
+  engagement?: {
+    likes: number;
+    comments: number;
+    shares: number;
+  };
+  timestamp?: string;
+}
+
+// Universal Content Types
+export interface SavedContent {
+  id: string;
+  platform: Platform;
+  title?: string;
+  content: string;
+  author: string;
+  url: string;
+  savedAt: string;
+  metadata?: VideoMetadata | LinkedInPost;
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -54,9 +91,11 @@ export interface ApiResponse<T = any> {
 export interface ExtensionState {
   isAuthenticated: boolean;
   user: User | null;
+  currentPlatform: Platform;
   currentVideo: VideoMetadata | null;
   transcript: TranscriptSegment[] | null;
   summary: Summary | null;
+  savedPosts: LinkedInPost[];
   isLoading: boolean;
   error: string | null;
 }
@@ -64,6 +103,7 @@ export interface ExtensionState {
 export interface Message {
   type: MessageType;
   data?: any;
+  platform?: Platform;
   timestamp?: number;
 }
 
@@ -73,11 +113,19 @@ export enum MessageType {
   LOGIN_SUCCESS = "LOGIN_SUCCESS",
   LOGOUT = "LOGOUT",
 
-  // Video related
+  // Platform detection
+  PLATFORM_ACTIVE = "PLATFORM_ACTIVE",
+  PLATFORM_INACTIVE = "PLATFORM_INACTIVE",
+
+  // YouTube specific
   VIDEO_CHANGED = "VIDEO_CHANGED",
   TRANSCRIPT_LOADED = "TRANSCRIPT_LOADED",
   SUMMARY_GENERATED = "SUMMARY_GENERATED",
   SUMMARY_SAVED = "SUMMARY_SAVED",
+
+  // LinkedIn specific
+  LINKEDIN_POST_DETECTED = "LINKEDIN_POST_DETECTED",
+  LINKEDIN_POST_SAVED = "LINKEDIN_POST_SAVED",
 
   // UI related
   SHOW_PANEL = "SHOW_PANEL",
@@ -92,17 +140,29 @@ export enum MessageType {
   REFRESH_TOKEN = "REFRESH_TOKEN",
 }
 
+export interface PlatformConfig {
+  name: string;
+  selectors: { [key: string]: string };
+  features: string[];
+}
+
 export interface KnuggetConfig {
   apiBaseUrl: string;
   websiteUrl: string;
-  refreshTokenThreshold: number; // minutes before expiry to refresh
+  refreshTokenThreshold: number;
   maxRetries: number;
   retryDelay: number;
+  platforms: {
+    [Platform.YOUTUBE]: PlatformConfig;
+    [Platform.LINKEDIN]: PlatformConfig;
+  };
 }
 
 // Chrome extension specific types
 declare global {
   interface Window {
     __KNUGGET_STATE__?: ExtensionState;
+    knuggetLinkedInDetector?: () => any;
+    knuggetDetector?: any;
   }
 }

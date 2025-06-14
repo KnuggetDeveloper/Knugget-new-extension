@@ -1,208 +1,92 @@
-class KnuggetPopup {
-  private elements: { [key: string]: HTMLElement } = {};
-
-  constructor() {
-    this.initializeElements();
-    this.setupEventListeners();
-    this.checkCurrentTab();
-    this.checkAuthStatus();
-  }
-
-  private initializeElements(): void {
-    const elementIds = [
-      "status-icon", "status-text", "user-section", "login-section",
-      "user-avatar", "user-name", "user-credits-text", "user-plan",
-      "login-btn", "signup-btn", "logout-btn", "dashboard-btn",
-      "summaries-btn", "settings-btn", "help-link", "feedback-link",
-    ];
-
-    elementIds.forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) {
-        this.elements[id] = element;
-      }
-    });
-  }
-
-  private setupEventListeners(): void {
-    this.elements["login-btn"]?.addEventListener("click", () => this.handleLogin());
-    this.elements["signup-btn"]?.addEventListener("click", () => this.handleSignup());
-    this.elements["logout-btn"]?.addEventListener("click", () => this.handleLogout());
-    this.elements["dashboard-btn"]?.addEventListener("click", () => this.openDashboard());
-    this.elements["summaries-btn"]?.addEventListener("click", () => this.openSummaries());
-    this.elements["settings-btn"]?.addEventListener("click", () => this.openSettings());
-
-    this.elements["help-link"]?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.openHelp();
-    });
-    this.elements["feedback-link"]?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.openFeedback();
-    });
-  }
-
-  private async checkCurrentTab(): Promise<void> {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab || !tab.url) {
-        this.updateStatus("inactive", "Unable to detect current page");
-        return;
-      }
-
-      const url = new URL(tab.url);
-
-      if (url.hostname.includes("youtube.com")) {
-        if (url.pathname === "/watch") {
-          this.updateStatus("active", "Active on YouTube video");
-        } else {
-          this.updateStatus("inactive", "Navigate to a YouTube video");
-        }
-      } else {
-        this.updateStatus("inactive", "Only works on YouTube videos");
-      }
-    } catch (error) {
-      console.error("Error checking current tab:", error);
-      this.updateStatus("inactive", "Error detecting page");
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('🎯 Popup loaded');
+  
+  // Get current tab info
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentUrl = tab?.url || '';
+  
+  // Detect platform
+  let platform = 'unknown';
+  let status = 'inactive';
+  let message = '';
+  
+  if (currentUrl.includes('youtube.com')) {
+    platform = 'youtube';
+    if (currentUrl.includes('/watch')) {
+      status = 'active';
+      message = '✅ Active on YouTube video';
+    } else {
+      message = '🎬 Navigate to a YouTube video';
     }
+  } else if (currentUrl.includes('linkedin.com')) {
+    platform = 'linkedin';
+    if (currentUrl.includes('/feed') || currentUrl === 'https://www.linkedin.com/') {
+      status = 'active';
+      message = '✅ Active on LinkedIn feed';
+    } else {
+      message = '💼 Navigate to LinkedIn feed';
+    }
+  } else {
+    message = '❌ Not on supported platform';
   }
-
-  private async checkAuthStatus(): Promise<void> {
-    try {
-      const response = await chrome.runtime.sendMessage({ type: "CHECK_AUTH_STATUS" });
-
-      if (response.isAuthenticated && response.user) {
-        this.showUserSection(response.user);
-      } else {
-        this.showLoginSection();
-      }
-    } catch (error) {
-      console.error("Error checking auth status:", error);
-      this.showLoginSection();
-    }
+  
+  // Update UI
+  const statusIcon = document.getElementById('status-icon');
+  const statusText = document.getElementById('status-text');
+  const platformIndicator = document.getElementById('platform-indicator');
+  
+  if (statusIcon) {
+    statusIcon.className = `status-icon ${status === 'inactive' ? 'inactive' : ''}`;
   }
-
-  private updateStatus(status: "active" | "inactive", message: string): void {
-    const statusIcon = this.elements["status-icon"];
-    const statusText = this.elements["status-text"];
-
-    if (statusIcon) {
-      statusIcon.className = `status-icon ${status === "inactive" ? "inactive" : ""}`;
-    }
-
-    if (statusText) {
-      statusText.textContent = message;
-    }
+  
+  if (statusText) {
+    statusText.textContent = message;
   }
-
-  private showUserSection(user: any): void {
-    this.elements["login-section"]?.classList.add("hidden");
-    this.elements["user-section"]?.classList.remove("hidden");
-
-    if (this.elements["user-avatar"]) {
-      this.elements["user-avatar"].textContent = user.name?.charAt(0).toUpperCase() || "U";
-    }
-
-    if (this.elements["user-name"]) {
-      this.elements["user-name"].textContent = user.name || user.email || "User";
-    }
-
-    if (this.elements["user-credits-text"]) {
-      const credits = user.credits || 0;
-      this.elements["user-credits-text"].textContent = `${credits} credit${credits !== 1 ? "s" : ""}`;
-    }
-
-    if (this.elements["user-plan"]) {
-      const plan = user.plan || "free";
-      this.elements["user-plan"].textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
-
-      const planBadge = this.elements["user-plan"];
-      if (plan === "premium") {
-        planBadge.style.background = "#8b5cf6";
-      } else {
-        planBadge.style.background = "#ff6b35";
-      }
-    }
+  
+  if (platformIndicator) {
+    platformIndicator.textContent = platform === 'youtube' ? '🎬 YouTube' : 
+                                   platform === 'linkedin' ? '💼 LinkedIn' : 
+                                   'Unknown Platform';
   }
-
-  private showLoginSection(): void {
-    this.elements["user-section"]?.classList.add("hidden");
-    this.elements["login-section"]?.classList.remove("hidden");
+  
+  // Check auth status
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "CHECK_AUTH_STATUS" });
+    
+    if (response?.isAuthenticated) {
+      // Show user section
+      document.getElementById('login-section')?.classList.add('hidden');
+      document.getElementById('user-section')?.classList.remove('hidden');
+      
+      const userAvatar = document.getElementById('user-avatar');
+      const userName = document.getElementById('user-name');
+      const userCredits = document.getElementById('user-credits-text');
+      
+      if (userAvatar) userAvatar.textContent = response.user.name?.charAt(0) || 'U';
+      if (userName) userName.textContent = response.user.name || response.user.email;
+      if (userCredits) userCredits.textContent = `${response.user.credits || 0} credits`;
+    } else {
+      // Show login section
+      document.getElementById('user-section')?.classList.add('hidden');
+      document.getElementById('login-section')?.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Auth check failed:', error);
   }
-
-  private handleLogin(): void {
-    chrome.runtime.sendMessage({
-      type: "OPEN_LOGIN_PAGE",
-      payload: { source: "popup" },
-    });
+  
+  // Event listeners
+  document.getElementById('login-btn')?.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: "OPEN_LOGIN_PAGE", payload: { url: currentUrl } });
     window.close();
-  }
-
-  private handleSignup(): void {
-    const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({
-      url: `${websiteUrl}/auth/signup?source=extension&extensionId=${chrome.runtime.id}`,
-    });
+  });
+  
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await chrome.runtime.sendMessage({ type: "LOGOUT" });
+    location.reload();
+  });
+  
+  document.getElementById('dashboard-btn')?.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: "OPEN_DASHBOARD" });
     window.close();
-  }
-
-  private async handleLogout(): Promise<void> {
-    try {
-      if (this.elements["logout-btn"]) {
-        this.elements["logout-btn"].textContent = "Signing out...";
-        (this.elements["logout-btn"] as HTMLButtonElement).disabled = true;
-      }
-
-      // Send logout message to background
-      await chrome.runtime.sendMessage({ type: "LOGOUT" });
-
-      this.showLoginSection();
-    } catch (error) {
-      console.error("Logout error:", error);
-
-      if (this.elements["logout-btn"]) {
-        this.elements["logout-btn"].textContent = "Sign Out";
-        (this.elements["logout-btn"] as HTMLButtonElement).disabled = false;
-      }
-    }
-  }
-
-  private openDashboard(): void {
-    const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/dashboard` });
-    window.close();
-  }
-
-  private openSummaries(): void {
-    const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/summaries` });
-    window.close();
-  }
-
-  private openSettings(): void {
-    const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/settings` });
-    window.close();
-  }
-
-  private openHelp(): void {
-    const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/help` });
-    window.close();
-  }
-
-  private openFeedback(): void {
-    const websiteUrl = this.getWebsiteUrl();
-    chrome.tabs.create({ url: `${websiteUrl}/feedback?source=extension` });
-    window.close();
-  }
-
-  private getWebsiteUrl(): string {
-    return "https://knugget-new-client.vercel.app"; // Frontend URL
-  }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  new KnuggetPopup();
+  });
 });

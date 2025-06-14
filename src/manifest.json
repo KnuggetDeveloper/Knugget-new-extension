@@ -1,54 +1,53 @@
 {
   "manifest_version": 3,
-  "name": "Knugget AI - YouTube Video Summarizer",
-  "version": "1.0.0",
-  "description": "AI-powered YouTube video summarization with intelligent insights",
+  "name": "Knugget AI - Multi-Platform Content Saver",
+  "version": "2.0.0",
+  "description": "AI-powered content summarization and saving for YouTube and LinkedIn",
+  
   "permissions": [
     "storage",
-    "activeTab",
+    "activeTab", 
     "scripting",
     "notifications",
     "cookies",
     "tabs"
   ],
+  
   "host_permissions": [
     "https://www.youtube.com/*",
-    "http://localhost:*/*",
-    "https://localhost:*/*",
-    "https://*.knugget.com/*",
-    "http://localhost:8000/*",
+    "https://*.linkedin.com/*",
     "https://knugget-new-backend.onrender.com/*",
     "https://knugget-new-client.vercel.app/*"
   ],
+  
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
+  
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
       "js": ["youtube.js"],
       "css": ["styles.css"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["https://*.linkedin.com/*"],
+      "js": ["linkedin.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
     }
   ],
+  
   "action": {
     "default_popup": "popup.html",
     "default_title": "Knugget AI"
   },
+  
   "externally_connectable": {
     "matches": [
-      "http://localhost:8000/*",
-      "https://localhost:8000/*",
-      "https://*.knugget.com/*",
       "https://knugget-new-backend.onrender.com/*",
       "https://knugget-new-client.vercel.app/*"
     ]
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["icons/*"],
-      "matches": ["https://www.youtube.com/*"]
-    }
-  ]
+  }
 }
