@@ -11,6 +11,7 @@ class SimpleBackgroundService {
     // Installation handler
     chrome.runtime.onInstalled.addListener((details) => {
       console.log("Extension installed/updated:", details.reason);
+      console.log("LinkedIn Post Viewer extension installed");
       if (details.reason === "install") {
         chrome.tabs.create({
           url: "https://knugget-new-client.vercel.app/welcome?source=extension&version=2.0",
@@ -20,7 +21,7 @@ class SimpleBackgroundService {
 
     // Message handler
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      console.log("📨 Background received message:", message.type);
+      console.log("📨 Background received message:", message.type || message);
 
       try {
         switch (message.type) {
@@ -44,9 +45,29 @@ class SimpleBackgroundService {
             this.handleLogout(sendResponse);
             break;
 
+          // LinkedIn Post Viewer specific messages
+          case "ping":
+            console.log(
+              "Background script received ping from LinkedIn content script"
+            );
+            sendResponse({
+              success: true,
+              message: "Background script active",
+            });
+            break;
+
+          case "getPostContent":
+          case "getSelectedPost":
+            // These are handled by content script to popup communication
+            // Background script just logs for debugging
+            console.log("LinkedIn post message received:", message);
+            sendResponse({ success: true });
+            break;
+
           default:
-            console.log("Unknown message type:", message.type);
-            sendResponse({ success: false, error: "Unknown message type" });
+            console.log("Unknown message type:", message.type || "no type");
+            // For LinkedIn Post Viewer compatibility, still respond with success
+            sendResponse({ success: true });
         }
       } catch (error) {
         console.error("Error handling message:", error);
@@ -89,7 +110,9 @@ class SimpleBackgroundService {
       }
     );
 
-    console.log("✅ Background service initialized");
+    console.log(
+      "✅ Background service initialized with LinkedIn Post Viewer support"
+    );
   }
 
   async handleAuthCheck(
