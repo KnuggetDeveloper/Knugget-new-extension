@@ -10,7 +10,8 @@
     "scripting",
     "notifications",
     "cookies",
-    "tabs"
+    "tabs",
+    "clipboardRead"
   ],
   
   "host_permissions": [
