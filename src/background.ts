@@ -1,4 +1,4 @@
-// Fixed src/background.ts - Core extension functionality without LinkedIn logic
+// Enhanced src/background.ts - Core extension functionality with LinkedIn support
 
 class SimpleBackgroundService {
   constructor() {
@@ -11,10 +11,10 @@ class SimpleBackgroundService {
     // Installation handler
     chrome.runtime.onInstalled.addListener((details) => {
       console.log("Extension installed/updated:", details.reason);
-      console.log("LinkedIn Post Viewer extension installed");
+      console.log("Knugget AI Multi-Platform extension installed");
       if (details.reason === "install") {
         chrome.tabs.create({
-          url: "https://knugget-new-client.vercel.app/welcome?source=extension&version=2.0",
+          url: "https://knugget-new-client.vercel.app/welcome?source=extension&version=2.0&platform=multi",
         });
       }
     });
@@ -45,11 +45,9 @@ class SimpleBackgroundService {
             this.handleLogout(sendResponse);
             break;
 
-          // LinkedIn Post Viewer specific messages
+          // YouTube-specific messages
           case "ping":
-            console.log(
-              "Background script received ping from LinkedIn content script"
-            );
+            console.log("Background script received ping from content script");
             sendResponse({
               success: true,
               message: "Background script active",
@@ -59,14 +57,36 @@ class SimpleBackgroundService {
           case "getPostContent":
           case "getSelectedPost":
             // These are handled by content script to popup communication
-            // Background script just logs for debugging
-            console.log("LinkedIn post message received:", message);
+            console.log("Content message received:", message);
+            sendResponse({ success: true });
+            break;
+
+          // LinkedIn-specific messages
+          case "SAVE_LINKEDIN_POST":
+            this.handleSaveLinkedInPost(message.payload, sendResponse);
+            break;
+
+          case "LINKEDIN_POST_SAVED":
+            console.log("LinkedIn post saved:", message.payload);
+            // Notify other tabs if needed
+            this.notifyLinkedInPostSaved(message.payload);
+            sendResponse({ success: true });
+            break;
+
+          case "LINKEDIN_SAVE_FAILED":
+            console.log("LinkedIn post save failed:", message.payload);
+            sendResponse({ success: true });
+            break;
+
+          // Platform detection
+          case "PLATFORM_ACTIVE":
+            console.log(`Platform ${message.platform} is active`);
             sendResponse({ success: true });
             break;
 
           default:
             console.log("Unknown message type:", message.type || "no type");
-            // For LinkedIn Post Viewer compatibility, still respond with success
+            // Still respond with success for compatibility
             sendResponse({ success: true });
         }
       } catch (error) {
@@ -110,9 +130,7 @@ class SimpleBackgroundService {
       }
     );
 
-    console.log(
-      "✅ Background service initialized with LinkedIn Post Viewer support"
-    );
+    console.log("✅ Background service initialized with multi-platform support");
   }
 
   async handleAuthCheck(
@@ -151,9 +169,9 @@ class SimpleBackgroundService {
       // Clear auth storage
       await chrome.storage.local.remove(["knugget_auth"]);
 
-      // Notify all tabs
+      // Notify all tabs across all platforms
       const tabs = await chrome.tabs.query({
-        url: ["*://*.youtube.com/*"],
+        url: ["*://*.youtube.com/*", "*://*.linkedin.com/*"],
       });
 
       for (const tab of tabs) {
@@ -207,9 +225,9 @@ class SimpleBackgroundService {
 
       await chrome.storage.local.set({ knugget_auth: authData });
 
-      // Notify all tabs of auth change
+      // Notify all tabs across all platforms of auth change
       const tabs = await chrome.tabs.query({
-        url: ["*://*.youtube.com/*"],
+        url: ["*://*.youtube.com/*", "*://*.linkedin.com/*"],
       });
 
       for (const tab of tabs) {
@@ -253,12 +271,112 @@ class SimpleBackgroundService {
     }
   }
 
+  // NEW: Handle LinkedIn post saving
+  async handleSaveLinkedInPost(
+    postData: any,
+    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+  ) {
+    try {
+      // Get auth data
+      const result = await chrome.storage.local.get(["knugget_auth"]);
+      const authData = result.knugget_auth;
+
+      if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
+        sendResponse({
+          success: false,
+          error: "Authentication required or expired"
+        });
+        return;
+      }
+
+      console.log("Making LinkedIn post save request to:", `https://knugget-new-backend.onrender.com/api/linkedin/posts`);
+
+      // Make API request to backend
+      const response = await fetch(`https://knugget-new-backend.onrender.com/api/linkedin/posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authData.token}`
+        },
+        body: JSON.stringify(postData)
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Use default error message if JSON parsing fails
+        }
+
+        console.error("LinkedIn post save failed:", response.status, errorMessage);
+        sendResponse({
+          success: false,
+          error: errorMessage
+        });
+        return;
+      }
+
+      const result_1 = await response.json();
+      console.log("LinkedIn post saved successfully via background:", result_1);
+
+      // Notify other LinkedIn tabs
+      this.notifyLinkedInPostSaved(result_1.data);
+
+      sendResponse({
+        success: true,
+        data: result_1.data
+      });
+
+    } catch (error) {
+      console.error("Error in handleSaveLinkedInPost:", error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : "Network error occurred"
+      });
+    }
+  }
+
+  // NEW: Notify other LinkedIn tabs when a post is saved
+  async notifyLinkedInPostSaved(postData: any) {
+    try {
+      const tabs = await chrome.tabs.query({
+        url: ["*://*.linkedin.com/*"],
+      });
+
+      for (const tab of tabs) {
+        if (tab.id) {
+          try {
+            await chrome.tabs.sendMessage(tab.id, {
+              type: "LINKEDIN_POST_SAVED_NOTIFICATION",
+              data: postData,
+            });
+          } catch (e) {
+            // Ignore if content script not loaded
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to notify LinkedIn tabs:", error);
+    }
+  }
+
   openLoginPage(payload: any) {
     const extensionId = chrome.runtime.id;
     const referrer = payload?.url
       ? `&referrer=${encodeURIComponent(payload.url)}`
       : "";
-    const loginUrl = `https://knugget-new-client.vercel.app/login?source=extension&extensionId=${extensionId}${referrer}`;
+    
+    // Detect platform from referrer URL
+    let platform = "unknown";
+    if (payload?.url?.includes("youtube.com")) {
+      platform = "youtube";
+    } else if (payload?.url?.includes("linkedin.com")) {
+      platform = "linkedin";
+    }
+
+    const loginUrl = `https://knugget-new-client.vercel.app/login?source=extension&extensionId=${extensionId}&platform=${platform}${referrer}`;
     chrome.tabs.create({ url: loginUrl });
   }
 

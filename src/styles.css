@@ -41,7 +41,6 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-fill-color: transparent;
   font-size: 18px;
   letter-spacing: 1px;
 }
@@ -823,4 +822,160 @@
     animation: none;
     border: 3px solid #ff6b35;
   }
+}
+
+/* Enhanced LinkedIn Save Button Styles */
+.linkedin-post-saver-button {
+  /* Base styling */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Sizing */
+  min-height: 32px;
+  padding: 6px 12px;
+  margin: 0 4px;
+
+  /* Typography */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+
+  /* Colors - Knugget brand */
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: #ffffff;
+  border: 1px solid transparent;
+
+  /* Appearance */
+  border-radius: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+
+  /* Effects */
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.2);
+  transition: all 0.2s ease-in-out;
+
+  /* Text styling */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Hover states */
+.linkedin-post-saver-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);
+  background: linear-gradient(135deg, #e55a2b 0%, #e6841a 100%);
+}
+
+/* Active/pressed state */
+.linkedin-post-saver-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.2);
+}
+
+/* Disabled state */
+.linkedin-post-saver-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Loading state */
+.linkedin-post-saver-button.loading {
+  position: relative;
+  color: transparent;
+}
+
+.linkedin-post-saver-button.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #ffffff;
+  border-radius: 50%;
+  animation: linkedin-button-spin 1s linear infinite;
+}
+
+@keyframes linkedin-button-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Integration with LinkedIn's existing styles */
+.feed-shared-control-menu .linkedin-post-saver-button,
+.social-actions-bar .linkedin-post-saver-button,
+.feed-shared-social-action-bar .linkedin-post-saver-button {
+  margin-left: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .linkedin-post-saver-button {
+    font-size: 13px;
+    padding: 5px 10px;
+    min-height: 28px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .linkedin-post-saver-button {
+    border: 2px solid #ffffff;
+    font-weight: 700;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .linkedin-post-saver-button {
+    transition: none;
+  }
+
+  .linkedin-post-saver-button:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .linkedin-post-saver-button.loading::after {
+    animation: none;
+    border: 2px solid #ffffff;
+  }
+}
+
+/* Focus accessibility */
+.linkedin-post-saver-button:focus {
+  outline: 2px solid #ff6b35;
+  outline-offset: 2px;
+}
+
+/* Success state styling */
+.linkedin-post-saver-button.success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.linkedin-post-saver-button.success:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Error state styling */
+.linkedin-post-saver-button.error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+.linkedin-post-saver-button.error:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }

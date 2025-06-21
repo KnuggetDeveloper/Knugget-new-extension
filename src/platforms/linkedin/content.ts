@@ -1,3 +1,13 @@
+// Enhanced src/platforms/linkedin/content.ts - Integrated with centralized auth
+import "../../styles.css";
+import { config } from "../../config";
+
+// Authentication state management
+let authState = {
+  isAuthenticated: false,
+  user: null as any | null,
+};
+
 // Function to detect and remove duplicated content within a string
 function removeDuplicatedContent(text: string): string {
   if (!text || text.length < 5) return text;
@@ -152,7 +162,20 @@ function extractPostData() {
     ".feed-shared-inline-show-more-text.feed-shared-update-v2__description, .feed-shared-text"
   );
   if (contentElement && contentElement.textContent) {
-    postData.content = contentElement.textContent.trim();
+    // Clean up LinkedIn's specific formatting and extra whitespace
+    let content = contentElement.textContent.trim();
+    
+    // Remove LinkedIn's "...more" and other UI elements
+    content = content.replace(/\s*…more\s*$/i, '');
+    content = content.replace(/\s*\.\.\.more\s*$/i, '');
+    
+    // Clean up excessive whitespace and newlines
+    content = content.replace(/\s+/g, ' ').trim();
+    
+    // Remove any remaining HTML-like artifacts
+    content = content.replace(/\s*\n\s*/g, '\n').trim();
+    
+    postData.content = content;
   }
 
   // Extract post URN to create direct link
@@ -223,6 +246,51 @@ function getPostContentForPopup() {
   }
 }
 
+// NEW: Save LinkedIn post to backend via background script
+async function savePostToBackend(postData: any): Promise<boolean> {
+  try {
+    if (!authState.isAuthenticated) {
+      console.error("User not authenticated");
+      return false;
+    }
+
+    // Prepare LinkedIn post data for backend
+    const linkedinPostPayload = {
+      title: postData.content.substring(0, 100) + (postData.content.length > 100 ? "..." : ""),
+      content: postData.content,
+      author: postData.author_name || "Unknown Author",
+      postUrl: postData.link,
+      platform: "linkedin",
+      metadata: {
+        authorAbout: postData.author_about,
+        authorImage: postData.author_image_url,
+        timestamp: new Date().toISOString(),
+        source: "chrome_extension"
+      }
+    };
+
+    console.log("Saving LinkedIn post to backend:", linkedinPostPayload);
+
+    // Send to background script to make the API call
+    const response = await chrome.runtime.sendMessage({
+      type: "SAVE_LINKEDIN_POST",
+      payload: linkedinPostPayload
+    });
+
+    if (response?.success) {
+      console.log("LinkedIn post saved successfully:", response.data);
+      return true;
+    } else {
+      console.error("Backend save failed:", response?.error || "Unknown error");
+      return false;
+    }
+
+  } catch (error) {
+    console.error("Error saving LinkedIn post:", error);
+    return false;
+  }
+}
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === "ping") {
@@ -249,13 +317,113 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         sendResponse({
           success: false,
           error:
-            'No post selected. Click a "View" button next to any LinkedIn post first.',
+            'No post selected. Click a "Save to Knugget" button next to any LinkedIn post first.',
         });
       }
     });
     return true;
   }
 });
+
+// NEW: Message listener for auth state changes (same as YouTube)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("📨 LinkedIn content script received message:", message.type);
+
+  try {
+    switch (message.type) {
+      case "AUTH_STATUS_CHANGED":
+        console.log("🔄 LinkedIn: Auth status changed:", message.data);
+        handleAuthStatusChange(message.data);
+        break;
+
+      case "LOGOUT":
+        console.log('🚪 LinkedIn: User logged out - updating button states');
+        handleLogout(message.data);
+        break;
+
+      case "TEST_CONNECTION":
+        console.log('🧪 LinkedIn: Test connection received');
+        sendResponse({ 
+          success: true, 
+          contentScriptActive: true,
+          platform: 'linkedin',
+          authState: {
+            isAuthenticated: authState.isAuthenticated,
+            hasUser: !!authState.user
+          }
+        });
+        break;
+
+      default:
+        console.log('❓ LinkedIn: Unknown message type:', message.type);
+        sendResponse({ success: false, error: 'Unknown message type' });
+        return;
+    }
+
+    sendResponse({ received: true, processed: true });
+  } catch (error: unknown) {
+    console.error('❌ LinkedIn: Error processing message:', error);
+    sendResponse({ 
+      received: true, 
+      processed: false, 
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
+  }
+  
+  return true;
+});
+
+// NEW: Handle auth status changes
+function handleAuthStatusChange(data: any): void {
+  if (data?.isAuthenticated && data?.user) {
+    console.log('✅ LinkedIn: User authenticated:', data.user.email);
+    authState.isAuthenticated = true;
+    authState.user = data.user;
+    
+    // Update all existing buttons to enabled state
+    updateAllButtonStates(true);
+  } else {
+    console.log('❌ LinkedIn: User not authenticated');
+    authState.isAuthenticated = false;
+    authState.user = null;
+    
+    // Update all existing buttons to disabled state
+    updateAllButtonStates(false);
+  }
+}
+
+// NEW: Handle logout
+function handleLogout(data: any): void {
+  console.log('🚪 LinkedIn: Processing logout...', data);
+  
+  authState.isAuthenticated = false;
+  authState.user = null;
+  
+  // Update all buttons to disabled state
+  updateAllButtonStates(false);
+  
+  console.log('✅ LinkedIn: Logout processing complete');
+}
+
+// NEW: Update all button states based on auth
+function updateAllButtonStates(isAuthenticated: boolean): void {
+  const buttons = document.querySelectorAll('.linkedin-post-saver-button');
+  
+  buttons.forEach((button) => {
+    const btn = button as HTMLButtonElement;
+    if (isAuthenticated) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.title = 'Save this post to Knugget';
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.title = 'Please log in to save posts';
+    }
+  });
+  
+  console.log(`Updated ${buttons.length} LinkedIn buttons - authenticated: ${isAuthenticated}`);
+}
 
 // Function to create and add save buttons to LinkedIn posts
 function addSaveButtonsToLinkedInPosts() {
@@ -302,21 +470,45 @@ function addSaveButtonsToLinkedInPosts() {
       return;
     }
 
-    // Create the save button
+    // Create the save button with updated label
     const saveButton = document.createElement("button");
     saveButton.className = "linkedin-post-saver-button";
-    saveButton.innerHTML = "<span>View</span>";
-    saveButton.title = "View this post in extension popup";
+    saveButton.innerHTML = "<span>Save to Knugget</span>"; // CHANGED: Updated button label
+    saveButton.title = "Save this post to Knugget";
+
+    // Set initial button state based on auth
+    if (!authState.isAuthenticated) {
+      saveButton.disabled = true;
+      saveButton.style.opacity = '0.5';
+      saveButton.title = 'Please log in to save posts';
+    }
 
     // Add click event listener to the button
     saveButton.addEventListener("click", async function (event) {
       event.preventDefault();
       event.stopPropagation();
 
-      console.log("View button clicked for post:", post);
+      console.log("Save to Knugget button clicked for post:", post);
+
+      // Check auth state
+      if (!authState.isAuthenticated) {
+        console.log("User not authenticated, showing login prompt");
+        saveButton.innerHTML = "<span>Please Login</span>";
+        
+        // Open login page
+        chrome.runtime.sendMessage({
+          type: "OPEN_LOGIN_PAGE",
+          payload: { url: window.location.href }
+        });
+        
+        setTimeout(() => {
+          saveButton.innerHTML = "<span>Save to Knugget</span>";
+        }, 2000);
+        return;
+      }
 
       // Update button state
-      saveButton.innerHTML = "<span>Selected!</span>";
+      saveButton.innerHTML = "<span>Saving...</span>";
       saveButton.disabled = true;
 
       try {
@@ -330,21 +522,30 @@ function addSaveButtonsToLinkedInPosts() {
 
         console.log("Extracted and cleaned post data:", postData);
 
-        // Store the selected post data
-        chrome.storage.local.set({ selectedPost: postData }, function () {
-          console.log("Post data stored for popup display");
-        });
+        // NEW: Save to backend instead of just storing locally
+        const saveSuccess = await savePostToBackend(postData);
 
-        // Show success feedback
-        setTimeout(() => {
-          saveButton.innerHTML = "<span>View</span>";
-          saveButton.disabled = false;
-        }, 1500);
+        if (saveSuccess) {
+          // Store the selected post data for popup display (keeping existing functionality)
+          chrome.storage.local.set({ selectedPost: postData }, function () {
+            console.log("Post data stored for popup display");
+          });
+
+          // Show success feedback
+          saveButton.innerHTML = "<span>Saved!</span>";
+          setTimeout(() => {
+            saveButton.innerHTML = "<span>Save to Knugget</span>";
+            saveButton.disabled = false;
+          }, 2000);
+        } else {
+          throw new Error("Failed to save to backend");
+        }
+
       } catch (error) {
-        console.error("Failed to extract post:", error);
-        saveButton.innerHTML = "<span>Error!</span>";
+        console.error("Failed to save post:", error);
+        saveButton.innerHTML = "<span>Save Failed</span>";
         setTimeout(() => {
-          saveButton.innerHTML = "<span>View</span>";
+          saveButton.innerHTML = "<span>Save to Knugget</span>";
           saveButton.disabled = false;
         }, 2000);
       }
@@ -483,7 +684,20 @@ function extractSpecificPostData(post: Element) {
     ".feed-shared-inline-show-more-text.feed-shared-update-v2__description, .feed-shared-text"
   );
   if (contentElement && contentElement.textContent) {
-    postData.content = contentElement.textContent.trim();
+    // Clean up LinkedIn's specific formatting and extra whitespace
+    let content = contentElement.textContent.trim();
+    
+    // Remove LinkedIn's "...more" and other UI elements
+    content = content.replace(/\s*…more\s*$/i, '');
+    content = content.replace(/\s*\.\.\.more\s*$/i, '');
+    
+    // Clean up excessive whitespace and newlines
+    content = content.replace(/\s+/g, ' ').trim();
+    
+    // Remove any remaining HTML-like artifacts
+    content = content.replace(/\s*\n\s*/g, '\n').trim();
+    
+    postData.content = content;
   }
 
   // Extract post URN to create direct link from this specific post
@@ -518,13 +732,37 @@ function extractSpecificPostData(post: Element) {
   return postData;
 }
 
+// NEW: Initialize auth state when content script loads
+async function initializeAuthState(): Promise<void> {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "CHECK_AUTH_STATUS" });
+    
+    if (response?.isAuthenticated && response?.user) {
+      authState.isAuthenticated = true;
+      authState.user = response.user;
+      console.log("✅ LinkedIn: Auth state initialized - authenticated");
+    } else {
+      authState.isAuthenticated = false;
+      authState.user = null;
+      console.log("ℹ️ LinkedIn: Auth state initialized - not authenticated");
+    }
+  } catch (error) {
+    console.log("❌ LinkedIn: Failed to get auth state:", error);
+    authState.isAuthenticated = false;
+    authState.user = null;
+  }
+}
+
 // Initialize when page loads with better debugging
-function init() {
+async function init() {
   console.log(
-    "LinkedIn Post Viewer extension initialized on:",
+    "LinkedIn Post Saver extension initialized on:",
     window.location.href
   );
   console.log("Document ready state:", document.readyState);
+
+  // NEW: Initialize auth state first
+  await initializeAuthState();
 
   // Immediate first attempt
   console.log("Immediate attempt to add buttons...");
