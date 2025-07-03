@@ -1,11 +1,13 @@
 import "../../styles.css";
 import { transcriptService } from "./transcript";
+import { youtubeSummaryService } from "./summary";
 import { User } from "../../types";
-import { getVideoId, debounce } from "../../shared/utils/dom";
+import { getVideoId, getVideoMetadata, debounce } from "../../shared/utils/dom";
 
 let currentVideoId: string | null = null;
 let knuggetPanel: HTMLElement | null = null;
 let hasInitializedGlobally = false;
+let currentSummary: any = null;
 let authState = {
   isAuthenticated: false,
   user: null as User | null,
@@ -147,7 +149,7 @@ function injectKnuggetPanel(secondaryColumn: HTMLElement): void {
           View Transcript
         </button>
         <button id="summary-tab" class="knugget-tab knugget-tab-inactive">
-          View Key Takeaways
+          Generate Summary
         </button>
       </div>
       
@@ -220,6 +222,42 @@ function setupPanelEventListeners(): void {
   dashboardBtn?.addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "OPEN_DASHBOARD" });
   });
+
+  // Save button event listener
+  saveButton?.addEventListener("click", async () => {
+    if (!currentSummary) {
+      console.error("No summary to save");
+      return;
+    }
+
+    const button = saveButton as HTMLButtonElement;
+    const originalText = button.textContent;
+    
+    button.disabled = true;
+    button.textContent = "Saving...";
+
+    try {
+      const saveResult = await youtubeSummaryService.saveSummary(currentSummary);
+      
+      if (saveResult.success) {
+        currentSummary = saveResult.data;
+        button.textContent = "Saved!";
+        setTimeout(() => {
+          button.textContent = "Save";
+          button.disabled = false;
+        }, 2000);
+      } else {
+        throw new Error(saveResult.error || "Failed to save summary");
+      }
+    } catch (error) {
+      console.error("Failed to save summary:", error);
+      button.textContent = "Save Failed";
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.disabled = false;
+      }, 2000);
+    }
+  });
 }
 
 async function loadAndDisplayTranscript(): Promise<void> {
@@ -273,19 +311,127 @@ async function loadAndDisplaySummary(): Promise<void> {
     return;
   }
 
-  showLoading(summaryContent, "Generating Summary");
+  const videoId = getVideoId();
+  if (!videoId) {
+    showError(summaryContent, "No video ID found");
+    return;
+  }
+
+  // Check if we already have a summary for this video
+  if (currentSummary && currentSummary.videoMetadata?.videoId === videoId) {
+    displaySummary(summaryContent, currentSummary);
+    return;
+  }
+
+  showLoading(summaryContent, "Checking for existing summary");
 
   try {
-    // Implementation for summary generation would go here
-    summaryContent.innerHTML = `
-      <div class="summary-placeholder">
-        <p>Summary generation will be implemented here</p>
-      </div>
-    `;
+    // Check if summary already exists
+    const existingResult = await youtubeSummaryService.checkExistingSummary(videoId);
+    
+    if (existingResult.success && existingResult.data) {
+      console.log("Found existing summary");
+      currentSummary = existingResult.data;
+      displaySummary(summaryContent, currentSummary);
+      return;
+    }
+
+    // Generate new summary
+    showLoading(summaryContent, "Generating AI Summary");
+
+    // Get transcript
+    const transcriptResponse = await transcriptService.extractTranscript();
+    if (!transcriptResponse.success || !transcriptResponse.data) {
+      throw new Error(transcriptResponse.error || "Failed to extract transcript");
+    }
+
+    // Get video metadata
+    const videoMetadata = getVideoMetadata();
+    if (!videoMetadata) {
+      throw new Error("Failed to extract video metadata");
+    }
+
+    // Generate summary
+    const summaryRequest = {
+      transcript: transcriptResponse.data,
+      videoMetadata
+    };
+
+    const summaryResult = await youtubeSummaryService.generateSummary(summaryRequest);
+    
+    if (!summaryResult.success || !summaryResult.data) {
+      throw new Error(summaryResult.error || "Failed to generate summary");
+    }
+
+    currentSummary = summaryResult.data;
+    displaySummary(summaryContent, currentSummary);
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     console.error("Summary generation error:", errorMessage);
     showError(summaryContent, errorMessage, loadAndDisplaySummary);
+  }
+}
+
+function displaySummary(element: HTMLElement, summary: any): void {
+  const saveButtonDisplay = summary.saved ? "none" : "block";
+  const saveButtonText = summary.saved ? "Saved" : "Save";
+  
+  element.innerHTML = `
+    <div class="summary-container" style="padding: 20px;">
+      <div class="summary-section">
+        <h4 style="color: #ffffff; margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 6px; color: #ff6b35;">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Key Points
+        </h4>
+        <div class="key-points">
+          ${summary.keyPoints.map((point: string) => `
+            <div class="key-point">
+              <span class="bullet" style="color: #ff6b35; font-weight: bold; margin-right: 10px;">•</span>
+              <span class="point-text" style="color: #e0e0e0; font-size: 13px; line-height: 1.5;">${point}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      
+      <div class="summary-section" style="margin-top: 24px;">
+        <h4 style="color: #ffffff; margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 6px; color: #ff6b35;">
+            <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+          </svg>
+          Full Summary
+        </h4>
+        <div class="full-summary" style="background: #1a1a1a; padding: 16px; border-radius: 8px; border: 1px solid #2d2d2d;">
+          <p style="color: #e0e0e0; font-size: 13px; line-height: 1.6; margin: 0;">${summary.fullSummary}</p>
+        </div>
+      </div>
+      
+      ${summary.tags && summary.tags.length > 0 ? `
+        <div class="summary-section" style="margin-top: 24px;">
+          <h4 style="color: #ffffff; margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 6px; color: #ff6b35;">
+              <path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            Tags
+          </h4>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            ${summary.tags.map((tag: string) => `
+              <span style="background: rgba(255, 107, 53, 0.2); color: #ff6b35; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${tag}</span>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  // Update save button visibility
+  const saveButton = document.getElementById("save-btn") as HTMLButtonElement;
+  if (saveButton) {
+    saveButton.style.display = saveButtonDisplay;
+    saveButton.textContent = saveButtonText;
+    saveButton.disabled = summary.saved;
   }
 }
 
@@ -481,6 +627,7 @@ function handleLogout(data: any): void {
   // Clear extension auth state immediately
   authState.isAuthenticated = false
   authState.user = null
+  currentSummary = null // Clear current summary
   updateCreditsDisplay(0)
 
   // Force comprehensive UI refresh
@@ -586,6 +733,7 @@ function initializeAuthState(): void {
 
 function resetContentData(): void {
   console.log("Content data reset for new video");
+  currentSummary = null; // Reset summary when navigating to new video
 }
 
 function removeExistingPanel(): void {
@@ -599,6 +747,7 @@ function removeExistingPanel(): void {
 function cleanup(): void {
   removeExistingPanel();
   currentVideoId = null;
+  currentSummary = null;
   console.log("Cleanup completed - navigated away from watch page");
 }
 

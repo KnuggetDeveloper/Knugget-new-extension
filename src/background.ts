@@ -1,4 +1,4 @@
-// Enhanced src/background.ts - Core extension functionality with LinkedIn support
+// Complete updated src/background.ts with YouTube summary integration
 
 class SimpleBackgroundService {
   constructor() {
@@ -52,6 +52,19 @@ class SimpleBackgroundService {
               success: true,
               message: "Background script active",
             });
+            break;
+
+          // YouTube Summary messages
+          case "GENERATE_SUMMARY":
+            this.handleGenerateSummary(message.payload, sendResponse);
+            break;
+
+          case "SAVE_SUMMARY":
+            this.handleSaveSummary(message.payload, sendResponse);
+            break;
+
+          case "CHECK_EXISTING_SUMMARY":
+            this.handleCheckExistingSummary(message.payload, sendResponse);
             break;
 
           case "getPostContent":
@@ -271,7 +284,206 @@ class SimpleBackgroundService {
     }
   }
 
-  // NEW: Handle LinkedIn post saving
+  // NEW: YouTube Summary handlers
+  async handleGenerateSummary(
+    payload: any,
+    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+  ) {
+    try {
+      // Get auth data
+      const result = await chrome.storage.local.get(["knugget_auth"]);
+      const authData = result.knugget_auth;
+
+      if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
+        sendResponse({
+          success: false,
+          error: "Authentication required or expired"
+        });
+        return;
+      }
+
+      console.log("Making summary generation request to:", `https://knugget-new-backend.onrender.com/api/summary/generate`);
+
+      // Make API request to backend
+      const response = await fetch(`https://knugget-new-backend.onrender.com/api/summary/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authData.token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Use default error message if JSON parsing fails
+        }
+
+        console.error("Summary generation failed:", response.status, errorMessage);
+        sendResponse({
+          success: false,
+          error: errorMessage
+        });
+        return;
+      }
+
+      const result_1 = await response.json();
+      console.log("Summary generated successfully via background:", result_1);
+
+      sendResponse({
+        success: true,
+        data: result_1.data
+      });
+
+    } catch (error) {
+      console.error("Error in handleGenerateSummary:", error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : "Network error occurred"
+      });
+    }
+  }
+
+  async handleSaveSummary(
+    payload: any,
+    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+  ) {
+    try {
+      // Get auth data
+      const result = await chrome.storage.local.get(["knugget_auth"]);
+      const authData = result.knugget_auth;
+
+      if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
+        sendResponse({
+          success: false,
+          error: "Authentication required or expired"
+        });
+        return;
+      }
+
+      console.log("Making summary save request to:", `https://knugget-new-backend.onrender.com/api/summary/save`);
+
+      // Make API request to backend
+      const response = await fetch(`https://knugget-new-backend.onrender.com/api/summary/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authData.token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Use default error message if JSON parsing fails
+        }
+
+        console.error("Summary save failed:", response.status, errorMessage);
+        sendResponse({
+          success: false,
+          error: errorMessage
+        });
+        return;
+      }
+
+      const result_1 = await response.json();
+      console.log("Summary saved successfully via background:", result_1);
+
+      sendResponse({
+        success: true,
+        data: result_1.data
+      });
+
+    } catch (error) {
+      console.error("Error in handleSaveSummary:", error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : "Network error occurred"
+      });
+    }
+  }
+
+  async handleCheckExistingSummary(
+    payload: any,
+    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+  ) {
+    try {
+      const { videoId } = payload;
+      
+      // Get auth data
+      const result = await chrome.storage.local.get(["knugget_auth"]);
+      const authData = result.knugget_auth;
+
+      if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
+        sendResponse({
+          success: false,
+          error: "Authentication required or expired"
+        });
+        return;
+      }
+
+      console.log("Checking existing summary for video:", videoId);
+
+      // Make API request to backend
+      const response = await fetch(`https://knugget-new-backend.onrender.com/api/summary/video/${videoId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authData.token}`
+        }
+      });
+
+      if (response.status === 404) {
+        // No existing summary found
+        sendResponse({
+          success: true,
+          data: null
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Use default error message if JSON parsing fails
+        }
+
+        console.error("Check existing summary failed:", response.status, errorMessage);
+        sendResponse({
+          success: false,
+          error: errorMessage
+        });
+        return;
+      }
+
+      const result_1 = await response.json();
+      console.log("Found existing summary:", result_1);
+
+      sendResponse({
+        success: true,
+        data: result_1.data
+      });
+
+    } catch (error) {
+      console.error("Error in handleCheckExistingSummary:", error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : "Network error occurred"
+      });
+    }
+  }
+
+  // LinkedIn post saving (existing functionality)
   async handleSaveLinkedInPost(
     postData: any,
     sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
@@ -338,7 +550,7 @@ class SimpleBackgroundService {
     }
   }
 
-  // NEW: Notify other LinkedIn tabs when a post is saved
+  // Notify other LinkedIn tabs when a post is saved
   async notifyLinkedInPostSaved(postData: any) {
     try {
       const tabs = await chrome.tabs.query({
