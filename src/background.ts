@@ -14,7 +14,7 @@ class SimpleBackgroundService {
       console.log("Knugget AI Multi-Platform extension installed");
       if (details.reason === "install") {
         chrome.tabs.create({
-          url: "https://knugget-new-client.vercel.app/welcome?source=extension&version=2.0&platform=multi",
+          url: "https://knugget-new-client.vercel.app",
         });
       }
     });
