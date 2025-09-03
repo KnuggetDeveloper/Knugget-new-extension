@@ -1,4 +1,3 @@
-// src/types.ts - Unified Types for Multi-Platform Extension
 export interface User {
   id: string;
   name: string;
@@ -20,6 +19,7 @@ export interface AuthData {
 export enum Platform {
   YOUTUBE = "youtube",
   LINKEDIN = "linkedin",
+  WEBSITE = "website", // NEW: Website platform
   UNKNOWN = "unknown"
 }
 
@@ -69,6 +69,21 @@ export interface LinkedInPost {
   timestamp?: string;
 }
 
+// NEW: Website-specific types
+export interface WebsiteContent {
+  id: string;
+  title: string;
+  content: string;
+  url: string;
+  websiteName: string;
+  platform: Platform.WEBSITE;
+  savedAt: string;
+  source: string;
+  keyPoints?: string[];
+  fullSummary?: string;
+  tags?: string[];
+}
+
 // Universal Content Types
 export interface SavedContent {
   id: string;
@@ -78,7 +93,7 @@ export interface SavedContent {
   author: string;
   url: string;
   savedAt: string;
-  metadata?: VideoMetadata | LinkedInPost;
+  metadata?: VideoMetadata | LinkedInPost | WebsiteContent;
 }
 
 export interface ApiResponse<T = any> {
@@ -93,9 +108,11 @@ export interface ExtensionState {
   user: User | null;
   currentPlatform: Platform;
   currentVideo: VideoMetadata | null;
+  currentWebsite: WebsiteContent | null; // NEW: Current website content
   transcript: TranscriptSegment[] | null;
   summary: Summary | null;
   savedPosts: LinkedInPost[];
+  savedWebsites: WebsiteContent[]; // NEW: Saved website content
   isLoading: boolean;
   error: string | null;
 }
@@ -127,6 +144,11 @@ export enum MessageType {
   LINKEDIN_POST_DETECTED = "LINKEDIN_POST_DETECTED",
   LINKEDIN_POST_SAVED = "LINKEDIN_POST_SAVED",
 
+  // NEW: Website specific
+  WEBSITE_CONTENT_DETECTED = "WEBSITE_CONTENT_DETECTED",
+  WEBSITE_SUMMARY_GENERATED = "WEBSITE_SUMMARY_GENERATED",
+  WEBSITE_SUMMARY_SAVED = "WEBSITE_SUMMARY_SAVED",
+
   // UI related
   SHOW_PANEL = "SHOW_PANEL",
   HIDE_PANEL = "HIDE_PANEL",
@@ -155,6 +177,7 @@ export interface KnuggetConfig {
   platforms: {
     [Platform.YOUTUBE]: PlatformConfig;
     [Platform.LINKEDIN]: PlatformConfig;
+    [Platform.WEBSITE]: PlatformConfig; // NEW: Website platform config
   };
 }
 
@@ -163,6 +186,7 @@ declare global {
   interface Window {
     __KNUGGET_STATE__?: ExtensionState;
     knuggetLinkedInDetector?: () => any;
+    knuggetWebsiteDetector?: () => any; // NEW: Website detector
     knuggetDetector?: any;
   }
 }

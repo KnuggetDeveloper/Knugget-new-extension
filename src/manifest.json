@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Knugget AI - Multi-Platform Content Saver",
+  "name": "Knugget AI - Universal Content Saver",
   "version": "2.0.0",
-  "description": "AI-powered content summarization and saving for YouTube and LinkedIn",
+  "description": "AI-powered content summarization for YouTube, LinkedIn, and all websites",
   
   "permissions": [
     "storage",
@@ -19,6 +19,8 @@
     "http://localhost:3000/*",
     "https://www.youtube.com/*",
     "https://*.linkedin.com/*",
+    "https://*/*",
+    "http://*/*",
     "https://knugget-new-backend.onrender.com/*",
     "https://knugget-new-client.vercel.app/*"
   ],
@@ -39,6 +41,35 @@
       "js": ["linkedin.js"],
       "css": ["styles.css"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["website.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end",
+      "exclude_matches": [
+        "https://www.youtube.com/*",
+        "https://*.linkedin.com/*",
+        "https://www.google.com/*",
+        "https://gmail.com/*",
+        "https://mail.google.com/*",
+        "https://drive.google.com/*",
+        "https://docs.google.com/*",
+        "https://sheets.google.com/*",
+        "https://slides.google.com/*",
+        "https://www.facebook.com/*",
+        "https://twitter.com/*",
+        "https://www.instagram.com/*",
+        "https://www.tiktok.com/*",
+        "https://www.reddit.com/*",
+        "https://github.com/*",
+        "https://stackoverflow.com/*",
+        "https://www.amazon.com/*",
+        "https://www.ebay.com/*",
+        "https://www.paypal.com/*",
+        "https://www.netflix.com/*",
+        "https://www.spotify.com/*"
+      ]
     }
   ],
   

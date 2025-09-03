@@ -96,6 +96,20 @@ class SimpleBackgroundService {
             console.log(`Platform ${message.platform} is active`);
             sendResponse({ success: true });
             break;
+          case "GENERATE_WEBSITE_SUMMARY":
+            this.handleGenerateWebsiteSummary(message.payload, sendResponse);
+            break;
+
+          case "SAVE_WEBSITE_SUMMARY":
+            this.handleSaveWebsiteSummary(message.payload, sendResponse);
+            break;
+
+          case "CHECK_EXISTING_WEBSITE_SUMMARY":
+            this.handleCheckExistingWebsiteSummary(
+              message.payload,
+              sendResponse
+            );
+            break;
 
           default:
             console.log("Unknown message type:", message.type || "no type");
@@ -143,7 +157,9 @@ class SimpleBackgroundService {
       }
     );
 
-    console.log("✅ Background service initialized with multi-platform support");
+    console.log(
+      "✅ Background service initialized with multi-platform support"
+    );
   }
 
   async handleAuthCheck(
@@ -287,7 +303,11 @@ class SimpleBackgroundService {
   // NEW: YouTube Summary handlers
   async handleGenerateSummary(
     payload: any,
-    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+    sendResponse: (response: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    }) => void
   ) {
     try {
       // Get auth data
@@ -297,22 +317,28 @@ class SimpleBackgroundService {
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
           success: false,
-          error: "Authentication required or expired"
+          error: "Authentication required or expired",
         });
         return;
       }
 
-      console.log("Making summary generation request to:", `https://knugget-new-backend.onrender.com/api/summary/generate`);
+      console.log(
+        "Making summary generation request to:",
+        `https://knugget-new-backend.onrender.com/api/summary/generate`
+      );
 
       // Make API request to backend
-      const response = await fetch(`https://knugget-new-backend.onrender.com/api/summary/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authData.token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await fetch(
+        `https://knugget-new-backend.onrender.com/api/summary/generate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authData.token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}`;
@@ -323,10 +349,14 @@ class SimpleBackgroundService {
           // Use default error message if JSON parsing fails
         }
 
-        console.error("Summary generation failed:", response.status, errorMessage);
+        console.error(
+          "Summary generation failed:",
+          response.status,
+          errorMessage
+        );
         sendResponse({
           success: false,
-          error: errorMessage
+          error: errorMessage,
         });
         return;
       }
@@ -336,21 +366,25 @@ class SimpleBackgroundService {
 
       sendResponse({
         success: true,
-        data: result_1.data
+        data: result_1.data,
       });
-
     } catch (error) {
       console.error("Error in handleGenerateSummary:", error);
       sendResponse({
         success: false,
-        error: error instanceof Error ? error.message : "Network error occurred"
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
       });
     }
   }
 
   async handleSaveSummary(
     payload: any,
-    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+    sendResponse: (response: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    }) => void
   ) {
     try {
       // Get auth data
@@ -360,22 +394,28 @@ class SimpleBackgroundService {
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
           success: false,
-          error: "Authentication required or expired"
+          error: "Authentication required or expired",
         });
         return;
       }
 
-      console.log("Making summary save request to:", `https://knugget-new-backend.onrender.com/api/summary/save`);
+      console.log(
+        "Making summary save request to:",
+        `https://knugget-new-backend.onrender.com/api/summary/save`
+      );
 
       // Make API request to backend
-      const response = await fetch(`https://knugget-new-backend.onrender.com/api/summary/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authData.token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await fetch(
+        `https://knugget-new-backend.onrender.com/api/summary/save`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authData.token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}`;
@@ -389,7 +429,7 @@ class SimpleBackgroundService {
         console.error("Summary save failed:", response.status, errorMessage);
         sendResponse({
           success: false,
-          error: errorMessage
+          error: errorMessage,
         });
         return;
       }
@@ -399,25 +439,29 @@ class SimpleBackgroundService {
 
       sendResponse({
         success: true,
-        data: result_1.data
+        data: result_1.data,
       });
-
     } catch (error) {
       console.error("Error in handleSaveSummary:", error);
       sendResponse({
         success: false,
-        error: error instanceof Error ? error.message : "Network error occurred"
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
       });
     }
   }
 
   async handleCheckExistingSummary(
     payload: any,
-    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+    sendResponse: (response: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    }) => void
   ) {
     try {
       const { videoId } = payload;
-      
+
       // Get auth data
       const result = await chrome.storage.local.get(["knugget_auth"]);
       const authData = result.knugget_auth;
@@ -425,7 +469,7 @@ class SimpleBackgroundService {
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
           success: false,
-          error: "Authentication required or expired"
+          error: "Authentication required or expired",
         });
         return;
       }
@@ -433,18 +477,21 @@ class SimpleBackgroundService {
       console.log("Checking existing summary for video:", videoId);
 
       // Make API request to backend
-      const response = await fetch(`https://knugget-new-backend.onrender.com/api/summary/video/${videoId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authData.token}`
+      const response = await fetch(
+        `https://knugget-new-backend.onrender.com/api/summary/video/${videoId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${authData.token}`,
+          },
         }
-      });
+      );
 
       if (response.status === 404) {
         // No existing summary found
         sendResponse({
           success: true,
-          data: null
+          data: null,
         });
         return;
       }
@@ -458,10 +505,14 @@ class SimpleBackgroundService {
           // Use default error message if JSON parsing fails
         }
 
-        console.error("Check existing summary failed:", response.status, errorMessage);
+        console.error(
+          "Check existing summary failed:",
+          response.status,
+          errorMessage
+        );
         sendResponse({
           success: false,
-          error: errorMessage
+          error: errorMessage,
         });
         return;
       }
@@ -471,14 +522,14 @@ class SimpleBackgroundService {
 
       sendResponse({
         success: true,
-        data: result_1.data
+        data: result_1.data,
       });
-
     } catch (error) {
       console.error("Error in handleCheckExistingSummary:", error);
       sendResponse({
         success: false,
-        error: error instanceof Error ? error.message : "Network error occurred"
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
       });
     }
   }
@@ -486,7 +537,11 @@ class SimpleBackgroundService {
   // LinkedIn post saving (existing functionality)
   async handleSaveLinkedInPost(
     postData: any,
-    sendResponse: (response: { success: boolean; data?: any; error?: string }) => void
+    sendResponse: (response: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    }) => void
   ) {
     try {
       // Get auth data
@@ -496,22 +551,28 @@ class SimpleBackgroundService {
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
           success: false,
-          error: "Authentication required or expired"
+          error: "Authentication required or expired",
         });
         return;
       }
 
-      console.log("Making LinkedIn post save request to:", `https://knugget-new-backend.onrender.com/api/linkedin/posts`);
+      console.log(
+        "Making LinkedIn post save request to:",
+        `https://knugget-new-backend.onrender.com/api/linkedin/posts`
+      );
 
       // Make API request to backend
-      const response = await fetch(`https://knugget-new-backend.onrender.com/api/linkedin/posts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authData.token}`
-        },
-        body: JSON.stringify(postData)
-      });
+      const response = await fetch(
+        `https://knugget-new-backend.onrender.com/api/linkedin/posts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authData.token}`,
+          },
+          body: JSON.stringify(postData),
+        }
+      );
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}`;
@@ -522,10 +583,14 @@ class SimpleBackgroundService {
           // Use default error message if JSON parsing fails
         }
 
-        console.error("LinkedIn post save failed:", response.status, errorMessage);
+        console.error(
+          "LinkedIn post save failed:",
+          response.status,
+          errorMessage
+        );
         sendResponse({
           success: false,
-          error: errorMessage
+          error: errorMessage,
         });
         return;
       }
@@ -538,14 +603,14 @@ class SimpleBackgroundService {
 
       sendResponse({
         success: true,
-        data: result_1.data
+        data: result_1.data,
       });
-
     } catch (error) {
       console.error("Error in handleSaveLinkedInPost:", error);
       sendResponse({
         success: false,
-        error: error instanceof Error ? error.message : "Network error occurred"
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
       });
     }
   }
@@ -573,13 +638,257 @@ class SimpleBackgroundService {
       console.error("Failed to notify LinkedIn tabs:", error);
     }
   }
+  async handleGenerateWebsiteSummary(
+    payload: any,
+    sendResponse: (response: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    }) => void
+  ) {
+    try {
+      // Get auth data
+      const result = await chrome.storage.local.get(["knugget_auth"]);
+      const authData = result.knugget_auth;
+
+      if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
+        sendResponse({
+          success: false,
+          error: "Authentication required or expired",
+        });
+        return;
+      }
+
+      console.log(
+        "Making website summary generation request to:",
+        `https://knugget-new-backend.onrender.com/api/website`
+      );
+
+      // Make API request to backend
+      const response = await fetch(
+        `https://knugget-new-backend.onrender.com/api/website`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authData.token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Use default error message if JSON parsing fails
+        }
+
+        console.error(
+          "Website summary generation failed:",
+          response.status,
+          errorMessage
+        );
+        sendResponse({
+          success: false,
+          error: errorMessage,
+        });
+        return;
+      }
+
+      const result_1 = await response.json();
+      console.log(
+        "Website summary generated successfully via background:",
+        result_1
+      );
+
+      sendResponse({
+        success: true,
+        data: result_1.data,
+      });
+    } catch (error) {
+      console.error("Error in handleGenerateWebsiteSummary:", error);
+      sendResponse({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
+      });
+    }
+  }
+
+  async handleSaveWebsiteSummary(
+    payload: any,
+    sendResponse: (response: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    }) => void
+  ) {
+    try {
+      // Get auth data
+      const result = await chrome.storage.local.get(["knugget_auth"]);
+      const authData = result.knugget_auth;
+
+      if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
+        sendResponse({
+          success: false,
+          error: "Authentication required or expired",
+        });
+        return;
+      }
+
+      console.log(
+        "Making website summary save request to:",
+        `https://knugget-new-backend.onrender.com/api/website/save`
+      );
+
+      // Make API request to backend
+      const response = await fetch(
+        `https://knugget-new-backend.onrender.com/api/website/save`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authData.token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Use default error message if JSON parsing fails
+        }
+
+        console.error(
+          "Website summary save failed:",
+          response.status,
+          errorMessage
+        );
+        sendResponse({
+          success: false,
+          error: errorMessage,
+        });
+        return;
+      }
+
+      const result_1 = await response.json();
+      console.log(
+        "Website summary saved successfully via background:",
+        result_1
+      );
+
+      sendResponse({
+        success: true,
+        data: result_1.data,
+      });
+    } catch (error) {
+      console.error("Error in handleSaveWebsiteSummary:", error);
+      sendResponse({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
+      });
+    }
+  }
+
+  async handleCheckExistingWebsiteSummary(
+    payload: any,
+    sendResponse: (response: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    }) => void
+  ) {
+    try {
+      const { url } = payload;
+
+      // Get auth data
+      const result = await chrome.storage.local.get(["knugget_auth"]);
+      const authData = result.knugget_auth;
+
+      if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
+        sendResponse({
+          success: false,
+          error: "Authentication required or expired",
+        });
+        return;
+      }
+
+      console.log("Checking existing website summary for URL:", url);
+
+      // Make API request to backend
+      const response = await fetch(
+        `https://knugget-new-backend.onrender.com/api/website?url=${encodeURIComponent(
+          url
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${authData.token}`,
+          },
+        }
+      );
+
+      if (response.status === 404) {
+        // No existing summary found
+        sendResponse({
+          success: true,
+          data: null,
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Use default error message if JSON parsing fails
+        }
+
+        console.error(
+          "Check existing website summary failed:",
+          response.status,
+          errorMessage
+        );
+        sendResponse({
+          success: false,
+          error: errorMessage,
+        });
+        return;
+      }
+
+      const result_1 = await response.json();
+      console.log("Found existing website summary:", result_1);
+
+      sendResponse({
+        success: true,
+        data: result_1.data,
+      });
+    } catch (error) {
+      console.error("Error in handleCheckExistingWebsiteSummary:", error);
+      sendResponse({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
+      });
+    }
+  }
 
   openLoginPage(payload: any) {
     const extensionId = chrome.runtime.id;
     const referrer = payload?.url
       ? `&referrer=${encodeURIComponent(payload.url)}`
       : "";
-    
+
     // Detect platform from referrer URL
     let platform = "unknown";
     if (payload?.url?.includes("youtube.com")) {

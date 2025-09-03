@@ -1,4 +1,4 @@
-// webpack.config.js - FIXED VERSION
+// webpack.config.js - Updated for website support
 const path = require("path");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
@@ -12,6 +12,7 @@ module.exports = (env, argv) => {
       background: "./src/background.ts",
       youtube: "./src/platforms/youtube/content.ts", 
       linkedin: "./src/platforms/linkedin/content.ts",
+      website: "./src/platforms/website/content.ts", 
       popup: "./src/popup.ts",
     },
     

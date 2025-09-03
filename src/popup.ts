@@ -1,9 +1,71 @@
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('🎯 Popup loaded');
   
   // Get current tab info
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const currentUrl = tab?.url || '';
+  
+  // Supported website domains
+  const EXCLUDED_DOMAINS = [
+    'youtube.com',
+    'linkedin.com',
+    'google.com',
+    'gmail.com',
+    'facebook.com',
+    'twitter.com',
+    'instagram.com',
+    'tiktok.com',
+    'reddit.com',
+    'github.com',
+    'stackoverflow.com',
+    'amazon.com',
+    'ebay.com',
+    'paypal.com',
+    'netflix.com',
+    'spotify.com'
+  ];
+  
+  function isExcludedDomain(url: string): boolean {
+    return EXCLUDED_DOMAINS.some(domain => url.includes(domain));
+  }
+  
+  function isArticlePage(url: string): boolean {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    
+    // Skip obvious non-article pages
+    if (pathname === '/' || 
+        pathname === '/home' || 
+        pathname === '/feed' || 
+        pathname === '/blog' || 
+        pathname === '/articles' ||
+        pathname === '/about' ||
+        pathname === '/contact' ||
+        pathname === '/login' ||
+        pathname === '/register' ||
+        pathname === '/search') {
+      return false;
+    }
+    
+    // Check for article indicators in URL
+    const articlePatterns = [
+      /\/post\//,
+      /\/article\//,
+      /\/blog\//,
+      /\/story\//,
+      /\/read\//,
+      /\/news\//,
+      /\/tutorial\//,
+      /\/guide\//,
+      /\/how-to\//,
+      /\/\d{4}\/\d{2}\//, // Date patterns
+      /\/p\//, // Medium-style
+      /\/articles\//, // Dev.to style
+    ];
+    
+    return articlePatterns.some(pattern => pattern.test(pathname));
+  }
   
   // Detect platform
   let platform = 'unknown';
@@ -26,6 +88,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       message = '💼 Navigate to LinkedIn feed';
     }
+  } else if (!isExcludedDomain(currentUrl)) {
+    platform = 'website';
+    
+    if (isArticlePage(currentUrl)) {
+      status = 'active';
+      message = '✅ Active on article page';
+    } else {
+      message = '📄 Navigate to an article page';
+    }
   } else {
     message = '❌ Not on supported platform';
   }
@@ -46,6 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (platformIndicator) {
     platformIndicator.textContent = platform === 'youtube' ? '🎬 YouTube' : 
                                    platform === 'linkedin' ? '💼 LinkedIn' : 
+                                   platform === 'website' ? '📄 Website' :
                                    'Unknown Platform';
   }
   

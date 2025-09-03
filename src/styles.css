@@ -476,3 +476,119 @@
     border: 3px solid #fd7e14;
   }
 }
+
+/* Website */
+
+/* Website content container */
+.website-content-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Content metadata section */
+.content-meta {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #21262d;
+}
+
+.content-title {
+  color: #f0f6fc;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.content-source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.content-website {
+  color: #fd7e14;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.content-url {
+  color: #8b949e;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", "Consolas", "Liberation Mono", "Menlo", monospace;
+  word-break: break-all;
+  opacity: 0.8;
+}
+
+/* Content preview section */
+.content-preview {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.content-text {
+  color: #e6edf3;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.content-text p {
+  margin: 0 0 12px 0;
+}
+
+.content-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Fixed panel positioning for websites */
+.knugget-extension.fixed-panel {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  z-index: 10000 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Responsive adjustments for fixed panel */
+@media (max-width: 768px) {
+  .knugget-extension.fixed-panel {
+    top: 10px !important;
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+  
+  .knugget-box {
+    height: auto !important;
+    max-height: 70vh !important;
+  }
+}
+
+/* Ensure content doesn't overlap with fixed panel */
+body:has(.knugget-extension.fixed-panel) {
+  margin-right: 420px;
+}
+
+@media (max-width: 768px) {
+  body:has(.knugget-extension.fixed-panel) {
+    margin-right: 0;
+    margin-top: 80px;
+  }
+}
+
+/* High contrast mode for website content */
+@media (prefers-contrast: high) {
+  .content-title {
+    color: #ffffff;
+  }
+  
+  .content-website {
+    color: #ffaa00;
+  }
+  
+  .content-text {
+    color: #ffffff;
+  }
+}
