@@ -2,8 +2,8 @@
 import { KnuggetConfig, Platform } from "./types";
 
 export const config: KnuggetConfig = {
-  apiBaseUrl: "https://knugget-new-backend.onrender.com/api",
-  websiteUrl: "https://knugget-new-client.vercel.app",
+  apiBaseUrl: "http://localhost:3000/api",
+  websiteUrl: "http://localhost:8000",
   refreshTokenThreshold: 5,
   maxRetries: 3,
   retryDelay: 1000,

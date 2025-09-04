@@ -14,7 +14,7 @@ class SimpleBackgroundService {
       console.log("Knugget AI Multi-Platform extension installed");
       if (details.reason === "install") {
         chrome.tabs.create({
-          url: "https://knugget-new-client.vercel.app",
+          url: "http://localhost:8000",
         });
       }
     });
@@ -36,7 +36,7 @@ class SimpleBackgroundService {
 
           case "OPEN_DASHBOARD":
             chrome.tabs.create({
-              url: "https://knugget-new-client.vercel.app/dashboard",
+              url: "http://localhost:8000/dashboard",
             });
             sendResponse({ success: true });
             break;
@@ -166,8 +166,22 @@ class SimpleBackgroundService {
     sendResponse: (response: { isAuthenticated: boolean; user: any }) => void
   ) {
     try {
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      // Check both possible auth storage keys for compatibility
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
+
+      console.log("🔍 Auth check - found data:", {
+        hasKnuggetAuth: !!result.knugget_auth,
+        hasKnuggetUserInfo: !!result.knuggetUserInfo,
+        hasValidAuth: !!(
+          authData &&
+          authData.token &&
+          authData.expiresAt > Date.now()
+        ),
+      });
 
       if (authData && authData.token && authData.expiresAt > Date.now()) {
         sendResponse({
@@ -196,7 +210,7 @@ class SimpleBackgroundService {
       console.log("🚪 Handling logout");
 
       // Clear auth storage
-      await chrome.storage.local.remove(["knugget_auth"]);
+      await chrome.storage.local.remove(["knugget_auth", "knuggetUserInfo"]);
 
       // Notify all tabs across all platforms
       const tabs = await chrome.tabs.query({
@@ -252,7 +266,11 @@ class SimpleBackgroundService {
         loginTime: new Date().toISOString(),
       };
 
-      await chrome.storage.local.set({ knugget_auth: authData });
+      // Store in both locations for compatibility
+      await chrome.storage.local.set({
+        knugget_auth: authData,
+        knuggetUserInfo: authData,
+      });
 
       // Notify all tabs across all platforms of auth change
       const tabs = await chrome.tabs.query({
@@ -311,8 +329,11 @@ class SimpleBackgroundService {
   ) {
     try {
       // Get auth data
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
 
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
@@ -388,8 +409,11 @@ class SimpleBackgroundService {
   ) {
     try {
       // Get auth data
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
 
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
@@ -463,8 +487,11 @@ class SimpleBackgroundService {
       const { videoId } = payload;
 
       // Get auth data
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
 
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
@@ -545,8 +572,11 @@ class SimpleBackgroundService {
   ) {
     try {
       // Get auth data
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
 
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
@@ -648,8 +678,11 @@ class SimpleBackgroundService {
   ) {
     try {
       // Get auth data
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
 
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
@@ -728,8 +761,11 @@ class SimpleBackgroundService {
   ) {
     try {
       // Get auth data
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
 
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
@@ -810,8 +846,11 @@ class SimpleBackgroundService {
       const { url } = payload;
 
       // Get auth data
-      const result = await chrome.storage.local.get(["knugget_auth"]);
-      const authData = result.knugget_auth;
+      const result = await chrome.storage.local.get([
+        "knugget_auth",
+        "knuggetUserInfo",
+      ]);
+      const authData = result.knugget_auth || result.knuggetUserInfo;
 
       if (!authData || !authData.token || authData.expiresAt <= Date.now()) {
         sendResponse({
@@ -897,7 +936,7 @@ class SimpleBackgroundService {
       platform = "linkedin";
     }
 
-    const loginUrl = `https://knugget-new-client.vercel.app/login?source=extension&extensionId=${extensionId}&platform=${platform}${referrer}`;
+    const loginUrl = `http://localhost:8000/login?source=extension&extensionId=${extensionId}&platform=${platform}${referrer}`;
     chrome.tabs.create({ url: loginUrl });
   }
 
